@@ -4,7 +4,9 @@
 Type anything  -> fluent exploit code pours out
 Tab            -> ACCESS GRANTED          Shift-Tab -> INTRUSION ALERT
 F1 trace       F2 matrix       F3 exfil       F4 theme       F5 auto-events
-F6 show/hide key hints         Esc Esc / Ctrl-C -> quit
+F6 show/hide key hints         F7 / F8 -> slower / faster
+F9 cycle map panel (globe, network, radar, traceroute)
+Esc Esc / Ctrl-C -> quit
 """
 import math
 import os
@@ -507,13 +509,17 @@ def sph(lat, lon):
 
 class Globe:
     TILT = 0.38
+    NAME = "GLOBAL NODE MAP"
+
+    def title(self, t):
+        return f"{self.NAME} :: {CITIES[int(t / 4) % len(CITIES)][0]}"
 
     def __init__(self):
         self.a = 0.0
         self.arcs = []
         self.rain = Rain()
 
-    def update(self, dt):
+    def update(self, dt, activity=0.0):
         self.a += dt * 0.35
         self.rain.update(dt)
         self.arcs = [a for a in self.arcs if a[2] < 3.2]
@@ -609,6 +615,341 @@ class Globe:
             put(sx, sy, "●", mix(th["warn"], th["hi"], pulse))
             for k2, c2 in enumerate(name):
                 put(sx + 2 + k2, sy, c2, mix(bg, th["warn"], 0.5 + 0.5 * vz))
+
+
+def line_pts(x0, y0, x1, y1):
+    pts, dx, dy = [], abs(x1 - x0), -abs(y1 - y0)
+    sx, sy = (1 if x0 < x1 else -1), (1 if y0 < y1 else -1)
+    err = dx + dy
+    while True:
+        pts.append((x0, y0))
+        if x0 == x1 and y0 == y1:
+            return pts
+        e2 = 2 * err
+        if e2 >= dy:
+            err += dy
+            x0 += sx
+        if e2 <= dx:
+            err += dx
+            y0 += sy
+
+
+# ───────────────────────────── network topology ──────────────────────────────
+
+# box-drawing glyph for each set of connections: N=1 E=2 S=4 W=8
+BOX = {1: "│", 4: "│", 5: "│", 2: "─", 8: "─", 10: "─", 6: "┌", 12: "┐", 3: "└", 9: "┘",
+       7: "├", 13: "┤", 14: "┬", 11: "┴", 15: "┼"}
+
+GATEWAYS = ["gw-edge", "fw01", "vpn02", "border-rtr"]
+HOSTS = ["dmz-web01", "mail-relay", "jump01", "ci-runner", "dev-wiki", "print-srv", "vpn-cons",
+         "ldap02", "k8s-ctl", "backup-nas", "hr-portal", "git-int", "siem01", "build07"]
+CROWNS = ["dc01.corp", "VAULT", "db-cluster", "swift-gw", "mainframe"]
+
+
+class Topology:
+    NAME = "NETWORK MAP"
+
+    def __init__(self):
+        self.new()
+
+    def new(self):
+        names = R.sample(HOSTS, 5)
+        spec = [["you"], [R.choice(GATEWAYS)], names[:3], names[3:], [R.choice(CROWNS)]]
+        self.nodes, layers = [], []
+        for L, lay in enumerate(spec):
+            ids = []
+            for k, nm in enumerate(lay):
+                fy = (k + 1) / (len(lay) + 1) + (R.uniform(-0.07, 0.07) if len(lay) > 1 else 0)
+                self.nodes.append({"name": nm, "L": L, "fy": fy, "st": 2 if L == 0 else 0})
+                ids.append(len(self.nodes) - 1)
+            layers.append(ids)
+        self.edges = set()
+        for L in range(len(layers) - 1):
+            for a in layers[L]:
+                for b in R.sample(layers[L + 1], min(len(layers[L + 1]), R.randint(1, 2))):
+                    self.edges.add((a, b))
+            for b in layers[L + 1]:
+                if not any(e[1] == b for e in self.edges):
+                    self.edges.add((R.choice(layers[L]), b))
+        self.edges = sorted(self.edges)
+        self.path = [0]
+        while self.nodes[self.path[-1]]["L"] < len(layers) - 1:
+            self.path.append(R.choice([b for a, b in self.edges if a == self.path[-1]]))
+        self.hop, self.phase, self.p, self.hold = 0, "move", 0.0, None
+        self.packets = []
+
+    def update(self, dt, activity=0.0):
+        for pk in self.packets:
+            pk[1] += dt * pk[2]
+        self.packets = [pk for pk in self.packets if pk[1] < 1]
+        while len(self.packets) < 4:
+            self.packets.append([R.randrange(len(self.edges)), R.uniform(-1.5, 0), R.uniform(0.5, 1.1)])
+        if self.hold is not None:
+            self.hold -= dt
+            if self.hold < 0:
+                self.new()
+            return
+        rate = dt * (0.7 + activity)
+        nxt = self.nodes[self.path[self.hop + 1]]
+        if self.phase == "move":
+            self.p += rate / 1.1
+            if self.p >= 1:
+                self.phase, self.p, nxt["st"] = "scan", 0.0, 1
+        else:
+            self.p += rate / 1.8
+            if self.p >= 1:
+                nxt["st"] = 2
+                self.hop += 1
+                self.phase, self.p = "move", 0.0
+                if self.hop == len(self.path) - 1:
+                    self.hold = 4.0
+
+    def title(self, t):
+        if self.hold is not None:
+            return f"{self.NAME} :: TARGET OWNED"
+        nm = self.nodes[self.path[self.hop + 1]]["name"]
+        return f"{self.NAME} :: {'pivot →' if self.phase == 'move' else 'exploiting'} {nm}"
+
+    def draw(self, scr, x0, y0, w, h, th, t):
+        if w < 20 or h < 5:
+            return
+        ncol = 5
+        span = (w - 4) / (ncol - 1)
+        pos = [(x0 + 1 + round(n["L"] * span), y0 + round(n["fy"] * (h - 1))) for n in self.nodes]
+        bg, faint = th["bg"], mix(th["bg"], th["dim"], 0.7)
+        onpath = {(self.path[i], self.path[i + 1]) for i in range(len(self.path) - 1)}
+        routes = {}
+        for a, b in self.edges:
+            (ax, ay), (bx, by) = pos[a], pos[b]
+            mx = (ax + bx) // 2
+            st = 1 if by >= ay else -1
+            routes[(a, b)] = ([(x, ay) for x in range(ax, mx)] + [(mx, y) for y in range(ay, by, st)]
+                              + [(x, by) for x in range(mx, bx + 1)])
+        nodecells = set(pos)
+
+        def paint(cells_by_edge, col):
+            bits = {}
+            for cells in cells_by_edge:
+                for (x1, y1), (x2, y2) in zip(cells, cells[1:]):
+                    d1 = 2 if x2 > x1 else 8 if x2 < x1 else 4 if y2 > y1 else 1
+                    d2 = {2: 8, 8: 2, 4: 1, 1: 4}[d1]
+                    bits[(x1, y1)] = bits.get((x1, y1), 0) | d1
+                    bits[(x2, y2)] = bits.get((x2, y2), 0) | d2
+            for (x, y), b in bits.items():
+                if (x, y) not in nodecells:
+                    scr.put(x, y, BOX.get(b, "·"), col)
+
+        owned = [routes[e] for e in onpath if self.nodes[e[1]]["st"] == 2]
+        paint([c for e, c in routes.items() if not (e in onpath and self.nodes[e[1]]["st"] == 2)], faint)
+        paint(owned, th["pri"])
+        if self.hold is None and self.phase == "move":
+            cells = routes[(self.path[self.hop], self.path[self.hop + 1])]
+            n = max(1, int(self.p * len(cells)))
+            paint([cells[:n + 1]], th["acc"])
+            if n < len(cells) and cells[n] not in nodecells:
+                scr.put(cells[n][0], cells[n][1], "◆", th["hi"])
+        for ei, prog, _ in self.packets:
+            pts = routes.get(self.edges[ei % len(self.edges)])
+            if pts and 0 <= prog < 1:
+                x, y = pts[int(prog * len(pts))]
+                if (x, y) not in nodecells:
+                    scr.put(x, y, "•", mix(bg, th["acc"], 0.8))
+        labels = h >= 7
+        for i, n in enumerate(self.nodes):
+            x, y = pos[i]
+            last = n["L"] == ncol - 1
+            if i == 0:
+                c, col = "■", th["hi"]
+            elif n["st"] == 2:
+                c, col = ("◆" if last else "●"), (th["hi"] if last else th["pri"])
+            elif n["st"] == 1:
+                c, col = "◎", th["warn"] if int(t * 6) % 2 else th["hi"]
+            else:
+                c, col = ("◆" if last else "○"), (th["alert"] if last else th["dim"])
+            scr.put(x, y, c, col)
+            if labels:
+                nm = n["name"][:max(3, int(span) - 1)]
+                lx = max(x0, min(x0 + w - len(nm), x - len(nm) // 2))
+                lcol = th["txt"] if n["st"] else th["dim"]
+                if n["st"] == 1:
+                    lcol = th["warn"]
+                scr.text(lx, y + 1, nm, lcol)
+
+
+# ───────────────────────────────── radar ─────────────────────────────────────
+
+
+class Radar:
+    NAME = "RADAR"
+
+    def __init__(self):
+        self.a = 0.0
+        self.clock = 0.0
+        self.targets = [self._tgt() for _ in range(7)]
+
+    def _tgt(self):
+        return {"ang": R.uniform(0, math.tau), "r": R.uniform(0.18, 0.92), "lit": -99.0,
+                "id": f"{R.choice(['TGT', 'HST', 'NODE', 'SRV'])}-{R.randint(1, 99):02d}",
+                "hostile": R.random() < 0.25, "drift": R.uniform(-0.04, 0.04)}
+
+    def update(self, dt, activity=0.0):
+        self.clock += dt
+        step = dt * 1.4 * (1 + activity * 0.5)
+        self.a = (self.a + step) % math.tau
+        for tg in self.targets:
+            tg["ang"] = (tg["ang"] + tg["drift"] * dt) % math.tau
+            if (self.a - tg["ang"]) % math.tau <= step + 1e-9:
+                tg["lit"] = self.clock
+        if R.random() < dt * 0.06:
+            # only respawn a contact that's dark, so blips never pop in mid-glow
+            dark = [i for i, tg in enumerate(self.targets) if self.clock - tg["lit"] > 3]
+            if dark:
+                self.targets[R.choice(dark)] = self._tgt()
+
+    def title(self, t):
+        n = sum(1 for tg in self.targets if self.clock - tg["lit"] < 4.5)
+        hos = sum(1 for tg in self.targets if tg["hostile"] and self.clock - tg["lit"] < 4.5)
+        s = f"{self.NAME} :: SWEEP {int(math.degrees(self.a)) % 360:03d}°  CONTACTS {n}"
+        return s + (f"  HOSTILE {hos}" if hos else "")
+
+    def draw(self, scr, x0, y0, w, h, th, t):
+        cx, cy = x0 + w / 2 - 0.5, y0 + h / 2 - 0.5
+        ry = h / 2 - 0.4
+        rx = ry * 2.1
+        if rx > w / 2 - 1:
+            rx = w / 2 - 1
+            ry = rx / 2.1
+        if ry < 2:
+            return
+        bg, pri = th["bg"], th["pri"]
+        ringc, faint = mix(bg, th["dim"], 0.6), mix(bg, th["dim"], 0.45)
+        icx, icy = int(round(cx)), int(round(cy))
+        for yy in range(y0, y0 + h):
+            ny = (yy - cy) / ry
+            for xx in range(x0, x0 + w):
+                nx = (xx - cx) / rx
+                r = math.sqrt(nx * nx + ny * ny)
+                if r > 1:
+                    if r < 1.07:
+                        scr.put(xx, yy, "·", th["border"])
+                    continue
+                d = (self.a - math.atan2(-ny, nx)) % math.tau
+                if d < 0.07 + 0.5 / max(1, r * rx):
+                    scr.put(xx, yy, "█" if r > 0.05 else "+", mix(pri, th["hi"], 0.5))
+                elif d < 1.0:
+                    k = 1 - d
+                    scr.put(xx, yy, "▒" if k > 0.6 else "░", mix(bg, pri, k * 0.65))
+                elif any(abs(r - q) < 0.45 / ry for q in (0.33, 0.66)) or r > 0.97:
+                    scr.put(xx, yy, "·", ringc)
+                elif xx == icx and yy == icy:
+                    scr.put(xx, yy, "+", faint)
+        for tg in self.targets:
+            age = self.clock - tg["lit"]
+            b = max(0.0, 1 - age / 3.8)
+            if b <= 0:
+                continue
+            px = int(round(cx + math.cos(tg["ang"]) * tg["r"] * rx))
+            py = int(round(cy - math.sin(tg["ang"]) * tg["r"] * ry))
+            col = th["alert"] if tg["hostile"] else th["acc"]
+            scr.put(px, py, "◉" if tg["hostile"] else "●", mix(bg, col, 0.25 + 0.75 * b))
+            if b > 0.35 and px + 2 + len(tg["id"]) < x0 + w:
+                scr.text(px + 2, py, tg["id"], mix(bg, th["txt"], b))
+
+
+# ─────────────────────────────── traceroute map ──────────────────────────────
+
+
+class TraceMap:
+    NAME = "TRACEROUTE"
+    LAT_TOP, LAT_SPAN = 75.0, 130.0
+
+    def __init__(self):
+        self.grid_key = None
+        self.new()
+
+    def new(self):
+        self.route = R.sample(range(len(CITIES)), R.randint(4, 6))
+        self.lat = [R.randint(4, 20)]
+        self.hop, self.p, self.hold = 0, 0.0, None
+
+    def update(self, dt, activity=0.0):
+        if self.hold is not None:
+            self.hold -= dt
+            if self.hold < 0:
+                self.new()
+            return
+        self.p += dt * (0.7 + activity) / 1.3
+        if self.p >= 1:
+            self.p = 0.0
+            self.hop += 1
+            self.lat.append(self.lat[-1] + R.randint(18, 95))
+            if self.hop >= len(self.route) - 1:
+                self.hold = 4.0
+
+    def title(self, t):
+        a, b = CITIES[self.route[0]][0], CITIES[self.route[-1]][0]
+        return f"{self.NAME} :: {a} → {b}" + ("  ROUTE LOCKED" if self.hold is not None else "")
+
+    def _grid(self, w, h):
+        if self.grid_key != (w, h):
+            self.grid_key = (w, h)
+            self.grid = []
+            for yy in range(h):
+                lat = math.radians(self.LAT_TOP - (yy + 0.5) / h * self.LAT_SPAN)
+                row = []
+                for xx in range(w):
+                    v = land(((xx + 0.5) / w * 2 - 1) * math.pi, lat)
+                    row.append(None if v <= 0.25 else ":" if v < 0.7 else "+" if v < 1.2 else "#")
+                self.grid.append(row)
+        return self.grid
+
+    def draw(self, scr, x0, y0, w, h, th, t):
+        log = h >= 8
+        mh = h - 1 if log else h
+        if w < 16 or mh < 4:
+            return
+        bg = th["bg"]
+        landc = mix(bg, th["dim"], 0.75)
+        for yy, row in enumerate(self._grid(w, mh)):
+            for xx, c in enumerate(row):
+                if c:
+                    scr.put(x0 + xx, y0 + yy, c, landc)
+
+        def pos(ci):
+            _, la, lo = CITIES[ci]
+            x = x0 + int((lo + 180) / 360 * (w - 1))
+            y = y0 + int(max(0, min(mh - 1, (self.LAT_TOP - la) / self.LAT_SPAN * (mh - 1))))
+            return x, y
+
+        for i in range(min(self.hop + 1, len(self.route) - 1)):
+            (ax, ay), (bx, by) = pos(self.route[i]), pos(self.route[i + 1])
+            pts = line_pts(ax, ay, bx, by)[1:-1]
+            if i == self.hop:
+                n = int(self.p * len(pts))
+                for x, y in pts[:n]:
+                    scr.put(x, y, "·", th["acc"])
+                if n < len(pts):
+                    scr.put(pts[n][0], pts[n][1], "◆", th["hi"])
+            else:
+                for x, y in pts:
+                    scr.put(x, y, "•", th["pri"])
+        on = {ci: k for k, ci in enumerate(self.route)}
+        for ci, (name, _, _) in enumerate(CITIES):
+            x, y = pos(ci)
+            if ci in on and on[ci] <= self.hop:
+                pulse = 0.5 + 0.5 * math.sin(t * 5 + ci)
+                scr.put(x, y, "●", mix(th["warn"], th["hi"], pulse))
+                scr.text(x + 1, y, name, th["warn"], maxw=x0 + w - x - 1)
+            elif ci in on:
+                scr.put(x, y, "○", th["dim"])
+            else:
+                scr.put(x, y, "·", th["dim"])
+        if log:
+            parts = [f"{CITIES[self.route[k]][0]} {self.lat[k]}ms" for k in range(min(self.hop + 1, len(self.lat)))]
+            if self.hold is None:
+                parts.append("…")
+            s = " › ".join(parts)
+            scr.text(x0, y0 + h - 1, s[-w:], th["txt"])
 
 
 # ─────────────────────────────── hex dump ────────────────────────────────────
@@ -987,7 +1328,7 @@ class Exfil(Overlay):
 # ───────────────────────────────── input ─────────────────────────────────────
 
 SEQ = {"[Z": "BTAB", "OP": "F1", "OQ": "F2", "OR": "F3", "OS": "F4",
-       "[11~": "F1", "[12~": "F2", "[13~": "F3", "[14~": "F4", "[15~": "F5", "[17~": "F6",
+       "[11~": "F1", "[12~": "F2", "[13~": "F3", "[14~": "F4", "[15~": "F5", "[17~": "F6", "[18~": "F7", "[19~": "F8", "[20~": "F9",
        "[1P": "F1", "[1Q": "F2", "[1R": "F3", "[1S": "F4"}
 CSI = re.compile(r"\x1b(\[[0-9;?]*[ -/]*[@-~]|O.)")
 
@@ -1054,6 +1395,8 @@ class App:
         self.ti = 0
         self.typer = Typer()
         self.globe = Globe()
+        self.maps = [self.globe, Topology(), Radar(), TraceMap()]
+        self.mi = 0
         self.hex = HexDump()
         self.crack = Cracker()
         self.sys = Systems()
@@ -1068,7 +1411,8 @@ class App:
         self.activity = 0.0
         self.esc_t = -99
         self.auto_events = True
-        self.next_event = 30
+        self.next_event = 60
+        self.last_popup = -99  # last automatic popup, for the cooldown
         self.hints = True
         self.hint_until = None
         self.phase = "boot" if boot else "main"
@@ -1078,6 +1422,8 @@ class App:
         self.typed_auto = 0.0
         self.toast = None
         self.typer.advance(400)
+        self.speed = 0.6       # panel animation speed multiplier (F7/F8)
+        self.chars = 2         # max characters typed per keypress
 
     @property
     def th(self):
@@ -1119,7 +1465,7 @@ class App:
             self.esc_t = t
             return
         if k == "TYPE":
-            self.typer.advance(R.randint(3, 7))
+            self.typer.advance(R.randint(1, self.chars))
             self.last_key = t
             self.activity = min(1.0, self.activity + 0.06)
             self.crack.boost(0.08)
@@ -1146,6 +1492,16 @@ class App:
         elif k == "F6":
             self.hints = not self.hints
             self.hint_until = None if self.hints else 0
+        elif k == "F9":
+            self.mi = (self.mi + 1) % len(self.maps)
+            self.glitch_until = t + 0.2
+            self.toast = (t, f"MAP :: {self.maps[self.mi].NAME}")
+        elif k in ("F7", "F8"):
+            steps = [0.25, 0.4, 0.6, 0.8, 1.0, 1.25, 1.5, 2.0]
+            i = min(range(len(steps)), key=lambda j: abs(steps[j] - self.speed))
+            i = max(0, min(len(steps) - 1, i + (1 if k == "F8" else -1)))
+            self.speed = steps[i]
+            self.toast = (t, f"SPEED :: {self.speed:g}x")
 
     # ── update
     def update(self, dt, t):
@@ -1157,29 +1513,34 @@ class App:
                 self.glitch_until = t + 0.4
                 self.hint_until = t + 10
             return
+        pdt = dt * self.speed
         if t - self.last_key > 3.0:
-            self.typed_auto += dt * 14
+            self.typed_auto += pdt * 14
             n = int(self.typed_auto)
             if n:
                 self.typer.advance(n)
                 self.typed_auto -= n
-        self.globe.update(dt)
-        self.hex.update(dt, 1 + self.activity * 2)
-        self.crack.update(dt, t)
-        self.sys.update(dt, t, self.activity)
+        self.maps[self.mi].update(pdt, self.activity)
+        self.hex.update(pdt, 1 + self.activity)
+        self.crack.update(pdt, t)
+        self.sys.update(pdt, t, self.activity)
         if self.matrix_until > t:
-            self.rain.update(dt)
+            self.rain.update(pdt)
         if self.overlay and not self.overlay.alive(t):
             self.overlay = None
-        if self.crack.just_done and not self.overlay and R.random() < 0.6:
+        quiet = not self.overlay and self.matrix_until < t and t - self.last_popup > 90
+        if self.crack.just_done and quiet and R.random() < 0.25:
             self.trigger("grant", t)
+            self.last_popup = t
+            self.next_event = max(self.next_event, t + 60)
         if t > self.next_glitch:
             self.glitch_until = t + R.uniform(0.06, 0.2)
             self.next_glitch = t + R.uniform(4, 11)
         if self.auto_events and t > self.next_event:
-            self.next_event = t + R.uniform(25, 55)
-            if not self.overlay and self.matrix_until < t:
+            self.next_event = t + R.uniform(60, 120)
+            if quiet:
                 self.trigger(R.choice(["trace", "exfil", "grant", "deny"]), t)
+                self.last_popup = t
 
     # ── draw
     def draw(self, t):
@@ -1289,9 +1650,9 @@ class App:
         crack_h = 7 if body - th_top >= 18 else 5
         term_h = body - th_top - crack_h
 
-        node = CITIES[int(t / 4) % len(CITIES)][0]
-        scr.box(0, top, gw, th_top, bcol, f"GLOBAL NODE MAP :: {node}", tcol, bg=pbg)
-        self.globe.draw(scr, 1, top + 1, gw - 2, th_top - 2, th, t)
+        view = self.maps[self.mi]
+        scr.box(0, top, gw, th_top, bcol, view.title(t), tcol, bg=pbg)
+        view.draw(scr, 1, top + 1, gw - 2, th_top - 2, th, t)
 
         scr.box(gw, top, W - gw, th_top, bcol, "MEMORY :: 10.13.37.42 /proc/1/mem", tcol, bg=pbg)
         self.hex.draw(scr, gw + 2, top + 1, W - gw - 4, th_top - 2, th, t)
@@ -1311,7 +1672,7 @@ class App:
         scr.fill(0, H - 1, W, 1, fb)
         show_hints = self.hints and (self.hint_until is None or t < self.hint_until)
         if show_hints:
-            s = " TAB grant  S-TAB alert  F1 trace  F2 matrix  F3 exfil  F4 theme  F5 auto  F6 hints  ESC×2 quit"
+            s = " TAB grant  S-TAB alert  F1 trace  F2 matrix  F3 exfil  F4 theme  F5 auto  F6 hints  F7/F8 speed  F9 map  ESC×2 quit"
             scr.text(0, H - 1, s, th["dim"], fb, maxw=W)
         else:
             k = int(t / 2.5)
@@ -1322,7 +1683,6 @@ class App:
     def glitch(self):
         scr = self.scr
         W, H = scr.w, scr.h
-        th = self.th
         for _ in range(R.randint(2, 5)):
             y0 = R.randrange(H)
             hh = R.randint(1, 3)
@@ -1333,10 +1693,6 @@ class App:
                 scr.ch[b:b + W] = rc[-off:] + rc[:-off]
                 scr.fg[b:b + W] = rf[-off:] + rf[:-off]
                 scr.bg[b:b + W] = rb[-off:] + rb[:-off]
-        for _ in range(W * H // 60):
-            i = R.randrange(W * H)
-            scr.ch[i] = R.choice("▓▒░█#$%&@<>/\\")
-            scr.fg[i] = R.choice([th["acc"], th["alert"], th["hi"], rgb(255, 0, 200), rgb(0, 255, 255)])
 
     # ── main loop
     def run(self):
@@ -1386,7 +1742,10 @@ class App:
 def main():
     if "-h" in sys.argv or "--help" in sys.argv:
         print(__doc__)
-        print("Options: --no-boot   skip the boot sequence\n         --theme N   start on theme N (0-4)")
+        print("Options: --no-boot   skip the boot sequence\n         --theme N   start on theme N (0-4)\n"
+              "         --speed X   panel animation speed, 0.25-2 (default 0.6)\n"
+              "         --chars N   max characters typed per keypress (default 2)\n"
+              "         --map N     start on map N: 0 globe, 1 network, 2 radar, 3 traceroute")
         return
     if not sys.stdin.isatty():
         print("hackterm needs an interactive terminal", file=sys.stderr)
@@ -1397,6 +1756,13 @@ def main():
             app.ti = int(sys.argv[sys.argv.index("--theme") + 1]) % len(app.themes)
         except (IndexError, ValueError):
             pass
+    for flag, attr, conv, lo, hi in (("--speed", "speed", float, 0.1, 4.0), ("--chars", "chars", int, 1, 20),
+                                     ("--map", "mi", int, 0, len(app.maps) - 1)):
+        if flag in sys.argv:
+            try:
+                setattr(app, attr, max(lo, min(hi, conv(sys.argv[sys.argv.index(flag) + 1]))))
+            except (IndexError, ValueError):
+                pass
     app.run()
 
 

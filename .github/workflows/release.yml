@@ -68,14 +68,23 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v10.4.0
       - name: Build standalone binary
+        # --strip and the excluded modules (parts of Python hackterm never uses)
+        # bring the binary from about 21 MB down to about 9 MB.
         run: |
-          python -m pip install --quiet "pyinstaller==${PYINSTALLER_VERSION}"
-          pyinstaller --onefile --name hackterm-linux-${{ matrix.arch }} --distpath dist hackterm.py
+          uv venv --python 3.13 .venv
+          uv pip install --python .venv "pyinstaller==${PYINSTALLER_VERSION}"
+          excludes=""
+          for m in hashlib _hashlib ssl _ssl bz2 _bz2 lzma _lzma decimal _decimal json pickle csv \
+                   socket unicodedata datetime statistics subprocess tarfile email http urllib xml \
+                   pydoc unittest tkinter asyncio multiprocessing sqlite3; do
+            excludes="$excludes --exclude-module $m"
+          done
+          .venv/bin/pyinstaller --onefile --strip $excludes \
+            --name hackterm-linux-${{ matrix.arch }} --distpath dist hackterm.py
           ./dist/hackterm-linux-${{ matrix.arch }} --version
+          ls -lh dist/
       - uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.arch }}

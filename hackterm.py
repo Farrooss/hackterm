@@ -1435,7 +1435,7 @@ class App:
         self.glitch_until = 0
         self.next_glitch = 3
         self.melt = None       # (start, corner, per-column drip params)
-        self.next_melt = R.uniform(45, 90)
+        self.next_melt = R.uniform(240, 480)   # rare: every 4-8 minutes
         self.matrix_until = 0
         self.last_key = -99
         self.activity = 0.0
@@ -1569,7 +1569,7 @@ class App:
             self.glitch_until = t + R.uniform(0.06, 0.2)
             self.next_glitch = t + R.uniform(4, 11)
         if t > self.next_melt:
-            self.next_melt = t + R.uniform(45, 90)
+            self.next_melt = t + R.uniform(240, 480)
             if not self.overlay and self.matrix_until < t:
                 self.start_melt(t)
         if self.melt and t - self.melt[0] > self.MELT_DUR:

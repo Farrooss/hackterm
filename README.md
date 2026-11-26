@@ -34,6 +34,7 @@ Good for: pranking friends and coworkers, a screen in the background of a video 
 - **Events:** ACCESS GRANTED, INTRUSION ALERT, a trace countdown with proxy rerouting, a fake download, fullscreen matrix rain
 - **Boot sequence:** a fake kernel log, then a padlock over matrix rain that shakes and springs open as the uplink connects
 - **Screen-tear glitches** like a video signal losing sync
+- **Melting screen:** once in a while a corner of the screen drips down like hot wax, then snaps back (`F10` to trigger it)
 - **Themes:** phosphor green, amber, cyber, red team, and your current [Omarchy](https://omarchy.org) theme if you use it
 - **Calm by default, adjustable:** set the panel speed, how much each keypress types, and whether random events fire
 
@@ -55,11 +56,13 @@ sudo apt install ./hackterm_*_all.deb
 sudo dnf install ./hackterm-*.noarch.rpm
 ```
 
-**Arch, Omarchy, Manjaro** ([AUR](https://aur.archlinux.org/packages/hackterm)):
+**Arch, Omarchy, Manjaro:** download the `.pkg.tar.zst`, then
 
 ```sh
-yay -S hackterm
+sudo pacman -U ./hackterm-*-any.pkg.tar.zst
 ```
+
+An AUR package is ready and will be published once AUR account registration reopens.
 
 **Alpine:** download the `.apk`, then `sudo apk add --allow-untrusted ./hackterm_*.apk`
 
@@ -124,6 +127,7 @@ Make sure `~/.local/bin` is on your `PATH`.
 | `F6` | show or hide the key hints (they hide by themselves after 10s) |
 | `F7` / `F8` | slow down / speed up the panels |
 | `F9` | swap the map panel: globe, network map, radar, traceroute |
+| `F10` | melt a corner of the screen |
 | `Esc Esc` / `Ctrl-C` | quit |
 
 Tip: to pull off the prank, start it with `--no-boot`, press `F6` to hide the hints, and just type.
@@ -171,6 +175,18 @@ hackterm also picks up your current Omarchy theme's colours as an extra theme.
 **Can it get me in trouble?** Only if you convince someone it's real. Please don't use it to scare people who might panic.
 
 **It's too fast / too busy.** Press `F7` to slow the panels down, start with `--chars 1` for slower typing, or press `F5` to turn off the random popups.
+
+## Testers wanted
+
+hackterm is developed and tested on Arch Linux ([Omarchy](https://omarchy.org)). If you can try it somewhere else, please [open an issue](https://github.com/Farrooss/hackterm/issues) saying what worked and what didn't. Especially useful:
+
+- **Packages:** installing the `.deb`, `.rpm` or `.apk` on Debian, Ubuntu, Fedora, openSUSE, Alpine or another distro
+- **Standalone binary:** running it on an older distro, or the `aarch64` build on ARM (Raspberry Pi, ARM laptops)
+- **Homebrew and macOS:** `brew install farrooss/tap/hackterm`, and whether hackterm works in Terminal.app or iTerm2
+- **Other systems:** FreeBSD, WSL, or anything else with a terminal
+- **Terminals:** how it looks in yours, including the colours, the globe and the box drawing
+
+Include your OS, terminal and `hackterm --version`. A screenshot helps if something looks wrong.
 
 ## Contributing
 

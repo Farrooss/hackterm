@@ -29,7 +29,10 @@ Then update the AUR and the Homebrew tap as below.
 
 ## AUR
 
-One-time setup: add your SSH key to your AUR account, then
+As of 2026-11-26, AUR account registration is temporarily closed, so this is on hold. Until then,
+Arch users install the `.pkg.tar.zst` from the release with `sudo pacman -U`.
+
+One-time setup, once you have an account: add your SSH key to your AUR account, then
 
 ```sh
 git clone ssh://aur@aur.archlinux.org/hackterm.git ~/Work/aur-hackterm

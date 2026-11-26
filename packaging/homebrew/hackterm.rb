@@ -4,7 +4,7 @@ class Hackterm < Formula
   desc "Cinematic fake-hacking console for your terminal"
   homepage "https://github.com/Farrooss/hackterm"
   url "https://github.com/Farrooss/hackterm/archive/refs/tags/v0.0.2.tar.gz"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "7f2036799128b7e41cd849cb7dff5b992964de797146e1f8d43a60db94239ec0"
   license "MIT"
 
   depends_on "python@3.14"

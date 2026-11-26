@@ -1,0 +1,104 @@
+name: release
+
+# Push a tag like v0.0.2 to build every package and publish a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:   # dry run: builds everything and uploads it as workflow artifacts, no release
+
+permissions:
+  contents: write
+
+env:
+  NFPM_VERSION: "2.49.0"
+  PYINSTALLER_VERSION: "6.22.3"
+
+jobs:
+  packages:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read version
+        id: v
+        run: |
+          v=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' hackterm.py)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$v" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match __version__ $v"; exit 1
+          fi
+
+      - uses: astral-sh/setup-uv@v10.4.0
+      - name: Check it runs on the oldest and newest supported Python
+        run: |
+          for py in 3.8 3.14; do uv run --no-project --python "$py" python hackterm.py --version; done
+
+      - name: Install nfpm
+        run: |
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" \
+            | tar -xz -C /usr/local/bin nfpm
+
+      - name: Build .deb .rpm .apk and Arch packages
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          mkdir -p dist
+          for p in deb rpm apk archlinux; do nfpm package -f packaging/nfpm.yaml -p "$p" -t dist/; done
+          ls -l dist
+
+      - name: Build the Python wheel and sdist
+        run: uv build --out-dir dist/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: dist/*
+
+  binary:
+    # Built on the oldest available runners so the binaries run on older glibc too.
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Build standalone binary
+        run: |
+          python -m pip install --quiet "pyinstaller==${PYINSTALLER_VERSION}"
+          pyinstaller --onefile --name hackterm-linux-${{ matrix.arch }} --distpath dist hackterm.py
+          ./dist/hackterm-linux-${{ matrix.arch }} --version
+      - uses: actions/upload-artifact@v7
+        with:
+          name: binary-${{ matrix.arch }}
+          path: dist/hackterm-linux-*
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [packages, binary]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="${{ needs.packages.outputs.version }}" \
+            '/^## /{ if (p) exit; if (index($0, "[" v "]")) { p=1; next } } p' CHANGELOG.md > notes.md
+          cat notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist && sha256sum * > SHA256SUMS && cd ..
+          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md

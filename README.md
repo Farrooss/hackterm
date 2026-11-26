@@ -41,7 +41,52 @@ Good for: pranking friends and coworkers, a screen in the background of a video 
 
 ## Install
 
-You need Python 3.8+ and nothing else.
+Every [release](https://github.com/Farrooss/hackterm/releases/latest) has packages for most Linux distros. They're tiny and work on any CPU, because hackterm runs on the Python your system already has.
+
+**Debian, Ubuntu, Mint:** download the `.deb` from the latest release, then
+
+```sh
+sudo apt install ./hackterm_*_all.deb
+```
+
+**Fedora, RHEL, openSUSE:** download the `.rpm`, then
+
+```sh
+sudo dnf install ./hackterm-*.noarch.rpm
+```
+
+**Arch, Omarchy, Manjaro** ([AUR](https://aur.archlinux.org/packages/hackterm)):
+
+```sh
+yay -S hackterm
+```
+
+**Alpine:** download the `.apk`, then `sudo apk add --allow-untrusted ./hackterm_*.apk`
+
+**Homebrew** (Linux and macOS):
+
+```sh
+brew install farrooss/tap/hackterm
+```
+
+**uv or pipx:**
+
+```sh
+uv tool install git+https://github.com/Farrooss/hackterm
+# or
+pipx install git+https://github.com/Farrooss/hackterm
+```
+
+**No Python?** Download `hackterm-linux-x86_64` (or `-aarch64` for ARM) from the latest release. It's a standalone binary:
+
+```sh
+chmod +x hackterm-linux-x86_64
+./hackterm-linux-x86_64
+```
+
+Each release also has a `SHA256SUMS` file for checking your download.
+
+**Or just grab the script.** You need Python 3.8+ and nothing else.
 
 **One-liner** (installs to `~/.local/bin`):
 

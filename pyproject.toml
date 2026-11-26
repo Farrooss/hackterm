@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hackterm"
+dynamic = ["version"]
+description = "A cinematic fake-hacking console for your terminal"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+keywords = ["terminal", "tui", "hacker", "prank", "screensaver"]
+classifiers = [
+    "Environment :: Console :: Curses",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+]
+
+[project.urls]
+Homepage = "https://github.com/Farrooss/hackterm"
+
+[project.scripts]
+hackterm = "hackterm:main"
+
+[tool.setuptools]
+py-modules = ["hackterm"]
+
+[tool.setuptools.dynamic]
+version = { attr = "hackterm.__version__" }

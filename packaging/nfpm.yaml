@@ -1,0 +1,42 @@
+# Builds .deb, .rpm, .apk and Arch packages from the plain script.
+# The packages are architecture-independent and depend on the system Python.
+#
+#   VERSION=0.0.2 nfpm package -f packaging/nfpm.yaml -p deb -t dist/
+#
+# Paths are relative to the repository root.
+name: hackterm
+arch: all
+platform: linux
+version: ${VERSION}
+release: 1
+section: games
+priority: optional
+maintainer: Farrooss <https://github.com/Farrooss>
+description: |
+  A cinematic fake-hacking console for your terminal.
+  Mash the keyboard and look like you're breaching a mainframe.
+  Pure theatre: it makes no network connections and runs no commands.
+homepage: https://github.com/Farrooss/hackterm
+license: MIT
+
+depends:
+  - python3
+
+overrides:
+  archlinux:
+    depends:
+      - python
+
+contents:
+  - src: ./hackterm.py
+    dst: /usr/bin/hackterm
+    file_info:
+      mode: 0755
+  - src: ./LICENSE
+    dst: /usr/share/licenses/hackterm/LICENSE
+    file_info:
+      mode: 0644
+  - src: ./README.md
+    dst: /usr/share/doc/hackterm/README.md
+    file_info:
+      mode: 0644

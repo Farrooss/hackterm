@@ -1,0 +1,23 @@
+# Maintainer: Farrooss <https://github.com/Farrooss>
+pkgname=hackterm
+pkgver=0.0.2
+pkgrel=1
+pkgdesc="A cinematic fake-hacking console for your terminal"
+arch=('any')
+url="https://github.com/Farrooss/hackterm"
+license=('MIT')
+depends=('python')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+check() {
+  cd "$pkgname-$pkgver"
+  python hackterm.py --version | grep -qx "hackterm $pkgver"
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 hackterm.py "$pkgdir/usr/bin/hackterm"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

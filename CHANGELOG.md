@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.0.3] - 2026-11-26
+
+### Changed
+
+- The standalone binaries are less than half the size: about 9 MB instead of 21 MB.
+
+### Added
+
+- Homebrew tap: `brew install farrooss/tap/hackterm` (Linux and macOS).
+
 ## [0.0.2] - 2026-11-26
 
 ### Added

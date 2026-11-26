@@ -20,7 +20,7 @@ import termios
 import time
 import tty
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 FPS = 30
 R = random.Random()
 

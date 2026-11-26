@@ -19,6 +19,7 @@ import termios
 import time
 import tty
 
+__version__ = "0.0.1"
 FPS = 30
 R = random.Random()
 
@@ -1378,6 +1379,32 @@ BOOT = [
     "[  OK  ] Reached target Hack The Planet.",
 ]
 
+# boot logo: a padlock that springs open when the uplink completes
+LOCK_SHUT = [
+    "",
+    "    ▄▄▄▄▄▄▄",
+    "   ██▀▀▀▀▀██",
+    "   ██     ██",
+    "   ██     ██",
+    "▄█████████████▄",
+    "██████▀ ▀██████",
+    "██████▄ ▄██████",
+    "███████ ███████",
+    "▀█████████████▀",
+]
+LOCK_OPEN = [
+    "    ▄▄▄▄▄▄▄",
+    "   ██▀▀▀▀▀██",
+    "   ██     ██",
+    "   ▀▀     ██",
+    "          ██",
+    "▄█████████████▄",
+    "██████▀ ▀██████",
+    "██████▄ ▄██████",
+    "███████ ███████",
+    "▀█████████████▀",
+]
+
 FOOTER_MSGS = ["[*] payload staged in /dev/shm/.x", "[+] session 4 opened (10.13.37.42:31337)",
                "[*] rotating MAC 3c:22:fb:**:**:**", "[+] hash dump: 1,204 entries",
                "[*] heartbeat from c2.void ok", "[+] privilege: uid=0(root) gid=0(root)",
@@ -1417,7 +1444,7 @@ class App:
         self.hint_until = None
         self.phase = "boot" if boot else "main"
         self.t0 = time.monotonic()
-        self.boot_end = 6.2
+        self.boot_end = 6.8
         self.resized = True
         self.typed_auto = 0.0
         self.toast = None
@@ -1582,24 +1609,44 @@ class App:
             return
         self.rain.setup(scr.w, scr.h)
         self.rain.draw(scr, 0, 0, th, min(1.0, (t - 2.6) * 1.5) * 0.55)
-        word = "HACKTERM" if big_width("HACKTERM") + 4 < scr.w else "HT"
-        bw = big_width(word)
-        x, y = (scr.w - bw) // 2, scr.h // 2 - 5
-        scr.fill(x - 3, y - 2, bw + 6, 13, th["bg"])
-        g = 0.3 if t < 3.2 else 0.04
-        draw_big(scr, x, y, word, th["pri"], mix(th["bg"], th["pri"], 0.35), glitch=g)
+        p = max(0.0, min(1.0, (t - 4.0) / 1.9))     # uplink progress; the lock pops at 1
+        opened = p >= 1
+        art = LOCK_OPEN if opened else LOCK_SHUT
+        aw = max(len(r) for r in art)
+        bw = 31
+        x, y = (scr.w - aw) // 2, max(1, scr.h // 2 - 8)
+        bx = (scr.w - bw) // 2
+        scr.fill(bx - 3, y - 1, bw + 6, len(art) + 9, th["bg"])
+        # glitchy on arrival, steady while locked, then shakes harder as the crack nears
+        g = 0.3 if t < 3.2 else 0.04 + (0.25 * (p - 0.7) / 0.3 if 0.7 < p < 1 else 0)
+        shake = R.choice([-1, 0, 1]) if 0.8 < p < 1 else 0
+        pop = opened and t - (4.0 + 1.9) < 0.25
+        col = th["hi"] if pop else th["pri"]
+        shadow = mix(th["bg"], th["pri"], 0.35)
+        for layer in (0, 1):
+            for ry, row in enumerate(art):
+                off = shake + (R.randint(-2, 2) if R.random() < g else 0)
+                for rx, c in enumerate(row):
+                    if c == " " or (layer == 0 and c == "▀"):
+                        continue
+                    if layer == 0:
+                        scr.put(x + rx + off + 1, y + ry + 1, "▒", shadow)
+                    else:
+                        scr.put(x + rx + off, y + ry, c, th["acc"] if opened and ry < 5 else col)
+        ty = y + len(art) + 2
+        sub = "h a c k t e r m"
+        scr.text((scr.w - len(sub)) // 2, ty, sub, th["dim"])
         if t > 4.0:
-            p = min(1.0, (t - 4.0) / (self.boot_end - 4.4))
             lbl = "ESTABLISHING UPLINK" + "." * (int(t * 4) % 4)
-            scr.text(x, y + 7, lbl, th["acc"])
-            bw2 = bw
-            f = int(bw2 * p)
-            scr.text(x, y + 8, "█" * f, th["pri"])
-            scr.text(x + f, y + 8, "░" * (bw2 - f), th["faint"])
-            if p >= 1:
-                scr.text(x, y + 9, "UPLINK SECURE ✓", th["hi"])
+            scr.text(bx, ty + 2, lbl, th["acc"])
+            f = int(bw * p)
+            scr.text(bx, ty + 3, "█" * f, th["pri"])
+            scr.text(bx + f, ty + 3, "░" * (bw - f), th["faint"])
+            if opened:
+                scr.text(bx, ty + 4, "UPLINK SECURE ✓", th["hi"])
         else:
-            scr.text(x, y + 7, "v4.2.0 // intrusion suite", th["dim"])
+            tag = f"v{__version__} // intrusion suite"
+            scr.text((scr.w - len(tag)) // 2, ty + 2, tag, th["faint"])
 
     def draw_matrix(self, t):
         scr, th = self.scr, self.th
@@ -1627,7 +1674,7 @@ class App:
         hb = mix(th["bg"], th["pri"], 0.12)
         cx = scr.text(1, 0, "▓▒░ ", th["pri"], hb)
         cx = scr.text(cx, 0, "HACKTERM", th["hi"], hb)
-        cx = scr.text(cx, 0, " v4.2.0 ░▒▓", th["pri"], hb)
+        cx = scr.text(cx, 0, f" v{__version__} ░▒▓", th["pri"], hb)
         if alarm or t < self.alarm_until:
             mid = "!! INTRUSION COUNTERMEASURES ACTIVE !!"
             mcol = th["alert"] if int(t * 6) % 2 else th["hi"]
@@ -1740,9 +1787,12 @@ class App:
 
 
 def main():
+    if "--version" in sys.argv:
+        print(f"hackterm {__version__}")
+        return
     if "-h" in sys.argv or "--help" in sys.argv:
         print(__doc__)
-        print("Options: --no-boot   skip the boot sequence\n         --theme N   start on theme N (0-4)\n"
+        print("Options: --version   print the version and exit\n         --no-boot   skip the boot sequence\n         --theme N   start on theme N (0-4)\n"
               "         --speed X   panel animation speed, 0.25-2 (default 0.6)\n"
               "         --chars N   max characters typed per keypress (default 2)\n"
               "         --map N     start on map N: 0 globe, 1 network, 2 radar, 3 traceroute")

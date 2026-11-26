@@ -32,7 +32,7 @@ Good for: pranking friends and coworkers, a screen in the background of a video 
 - **Password cracker** that locks in characters one by one
 - **Systems panel** with CPU and network sparklines, firewall layers being breached, a port scan and a proxy chain
 - **Events:** ACCESS GRANTED, INTRUSION ALERT, a trace countdown with proxy rerouting, a fake download, fullscreen matrix rain
-- **Boot sequence:** a fake kernel log, then a glitchy logo over matrix rain
+- **Boot sequence:** a fake kernel log, then a padlock over matrix rain that shakes and springs open as the uplink connects
 - **Screen-tear glitches** like a video signal losing sync
 - **Themes:** phosphor green, amber, cyber, red team, and your current [Omarchy](https://omarchy.org) theme if you use it
 - **Calm by default, adjustable:** set the panel speed, how much each keypress types, and whether random events fire
@@ -88,6 +88,7 @@ Tip: to pull off the prank, start it with `--no-boot`, press `F6` to hide the hi
 | Option | Effect |
 |---|---|
 | `--no-boot` | skip the boot sequence |
+| `--version` | print the version and exit |
 | `--theme N` | start on theme N (0 phosphor, 1 amber, 2 cyber, 3 red team, 4 Omarchy if you use it) |
 | `--map N` | start on map N (0 globe, 1 network, 2 radar, 3 traceroute) |
 | `--speed X` | panel speed from 0.25 to 2 (default 0.6) |

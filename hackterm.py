@@ -6,6 +6,7 @@ Tab            -> ACCESS GRANTED          Shift-Tab -> INTRUSION ALERT
 F1 trace       F2 matrix       F3 exfil       F4 theme       F5 auto-events
 F6 show/hide key hints         F7 / F8 -> slower / faster
 F9 cycle map panel (globe, network, radar, traceroute)
+F10 melt a corner of the screen
 Esc Esc / Ctrl-C -> quit
 """
 import math
@@ -1329,7 +1330,7 @@ class Exfil(Overlay):
 # ───────────────────────────────── input ─────────────────────────────────────
 
 SEQ = {"[Z": "BTAB", "OP": "F1", "OQ": "F2", "OR": "F3", "OS": "F4",
-       "[11~": "F1", "[12~": "F2", "[13~": "F3", "[14~": "F4", "[15~": "F5", "[17~": "F6", "[18~": "F7", "[19~": "F8", "[20~": "F9",
+       "[11~": "F1", "[12~": "F2", "[13~": "F3", "[14~": "F4", "[15~": "F5", "[17~": "F6", "[18~": "F7", "[19~": "F8", "[20~": "F9", "[21~": "F10",
        "[1P": "F1", "[1Q": "F2", "[1R": "F3", "[1S": "F4"}
 CSI = re.compile(r"\x1b(\[[0-9;?]*[ -/]*[@-~]|O.)")
 
@@ -1433,6 +1434,8 @@ class App:
         self.flash_until = 0
         self.glitch_until = 0
         self.next_glitch = 3
+        self.melt = None       # (start, corner, per-column drip params)
+        self.next_melt = R.uniform(45, 90)
         self.matrix_until = 0
         self.last_key = -99
         self.activity = 0.0
@@ -1523,6 +1526,8 @@ class App:
             self.mi = (self.mi + 1) % len(self.maps)
             self.glitch_until = t + 0.2
             self.toast = (t, f"MAP :: {self.maps[self.mi].NAME}")
+        elif k == "F10":
+            self.start_melt(t)
         elif k in ("F7", "F8"):
             steps = [0.25, 0.4, 0.6, 0.8, 1.0, 1.25, 1.5, 2.0]
             i = min(range(len(steps)), key=lambda j: abs(steps[j] - self.speed))
@@ -1563,6 +1568,13 @@ class App:
         if t > self.next_glitch:
             self.glitch_until = t + R.uniform(0.06, 0.2)
             self.next_glitch = t + R.uniform(4, 11)
+        if t > self.next_melt:
+            self.next_melt = t + R.uniform(45, 90)
+            if not self.overlay and self.matrix_until < t:
+                self.start_melt(t)
+        if self.melt and t - self.melt[0] > self.MELT_DUR:
+            self.melt = None
+            self.glitch_until = t + 0.1   # snap back with a quick tear
         if self.auto_events and t > self.next_event:
             self.next_event = t + R.uniform(60, 120)
             if quiet:
@@ -1591,6 +1603,8 @@ class App:
         if self.toast and t - self.toast[0] < 1.6:
             s = f" {self.toast[1]} "
             scr.text(scr.w - len(s) - 2, 1, s, th["bg"], th["pri"])
+        if self.melt and self.phase == "main":
+            self.draw_melt(t)
         if t < self.glitch_until:
             self.glitch()
 
@@ -1719,7 +1733,7 @@ class App:
         scr.fill(0, H - 1, W, 1, fb)
         show_hints = self.hints and (self.hint_until is None or t < self.hint_until)
         if show_hints:
-            s = " TAB grant  S-TAB alert  F1 trace  F2 matrix  F3 exfil  F4 theme  F5 auto  F6 hints  F7/F8 speed  F9 map  ESC×2 quit"
+            s = " TAB grant  S-TAB alert  F1 trace  F2 matrix  F3 exfil  F4 theme  F5 auto  F6 hints  F7/F8 speed  F9 map  F10 melt  ESC×2 quit"
             scr.text(0, H - 1, s, th["dim"], fb, maxw=W)
         else:
             k = int(t / 2.5)
@@ -1740,6 +1754,46 @@ class App:
                 scr.ch[b:b + W] = rc[-off:] + rc[:-off]
                 scr.fg[b:b + W] = rf[-off:] + rf[:-off]
                 scr.bg[b:b + W] = rb[-off:] + rb[:-off]
+
+    MELT_DUR = 2.4
+
+    def start_melt(self, t):
+        cols = [(R.uniform(0.55, 1.0), R.uniform(0, 6.3)) for _ in range(400)]
+        self.melt = (t, R.randrange(4), cols)
+
+    def draw_melt(self, t):
+        """Drip one corner of the screen downwards, like hot wax, then let it snap back."""
+        scr, th = self.scr, self.th
+        W, H = scr.w, scr.h - 1          # leave the footer alone
+        t0, corner, cols = self.melt
+        e = min(1.0, (t - t0) / (self.MELT_DUR * 0.85))
+        p = e * e * (3 - 2 * e) * e      # slow start, sags faster as it goes
+        rw, rh = int(W * 0.3), int(H * 0.45)
+        right, bottom = corner & 1, corner & 2
+        for i in range(rw):
+            d = 1 - i / rw               # 1 at the screen edge, 0 at the inner edge
+            amp, ph = cols[i % len(cols)]
+            x = W - 1 - i if right else i
+            colh = max(1, int(rh * d ** 0.7))          # rounded corner region
+            o = int(rh * 0.7 * d ** 1.4 * amp * p * (0.85 + 0.15 * math.sin(ph + t * 3)))
+            if o <= 0:
+                continue
+            y0 = H - colh if bottom else 0
+            col = [(scr.ch[y * scr.w + x], scr.fg[y * scr.w + x], scr.bg[y * scr.w + x])
+                   for y in range(y0, y0 + colh)]
+            # trail colour: the first visible glyph in the column, faded
+            src = next((c for c in col if c[0] != " "), col[0])
+            for y in range(y0, min(H, y0 + colh + o)):
+                k = y - y0 - o
+                if k >= 0:
+                    c, f, b = col[k]
+                    if y - y0 >= colh:   # sliding past the region's lower edge
+                        f = mix(f, th["bg"], min(0.8, (y - y0 - colh) / max(1, o)))
+                else:                    # what's left behind: dark, with the odd drip line
+                    fade = 0.35 + 0.5 * (1 - (y - y0) / o)
+                    c = ("╎" if (y - y0) % 3 else "│") if ph > 4.2 else " "
+                    f, b = mix(src[1] or th["dim"], th["bg"], fade), th["bg"]
+                scr.put(x, y, c, f, b)
 
     # ── main loop
     def run(self):

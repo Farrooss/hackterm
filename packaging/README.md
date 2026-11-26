@@ -49,8 +49,21 @@ git commit -am "Update to 0.0.3" && git push
 
 ## Homebrew tap
 
-One-time setup: create a public GitHub repo named `homebrew-tap` with a `Formula/` folder.
-Users then install with `brew install farrooss/tap/hackterm`.
+The tap is [Farrooss/homebrew-tap](https://github.com/Farrooss/homebrew-tap), cloned at `~/Work/homebrew-tap`.
+Users install with `brew install farrooss/tap/hackterm`.
 
-Each release, copy `packaging/homebrew/hackterm.rb` to `Formula/hackterm.rb` in that repo, commit and push.
-If you have Homebrew, check it first with `brew install --build-from-source ./Formula/hackterm.rb && brew test hackterm`.
+Each release, after `release.sh sums`:
+
+```sh
+tail -n +3 packaging/homebrew/hackterm.rb > ~/Work/homebrew-tap/Formula/hackterm.rb   # drops the header comment
+cd ~/Work/homebrew-tap
+git commit -am "hackterm 0.0.3" && git push
+```
+
+To check the formula without installing Homebrew, use its container:
+
+```sh
+podman run --rm -v "$PWD/packaging/homebrew:/f:ro,Z" docker.io/homebrew/brew bash -c \
+  'brew tap-new --no-git test/tap && cp /f/hackterm.rb $(brew --repo test/tap)/Formula/ &&
+   brew install test/tap/hackterm && brew test test/tap/hackterm && brew audit --strict test/tap/hackterm'
+```

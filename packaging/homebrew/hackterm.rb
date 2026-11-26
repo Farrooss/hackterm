@@ -1,6 +1,8 @@
 # Homebrew formula for a personal tap. Copy it to Formula/hackterm.rb in a repo
 # named Farrooss/homebrew-tap; users then run `brew install farrooss/tap/hackterm`.
 class Hackterm < Formula
+  include Language::Python::Shebang
+
   desc "Cinematic fake-hacking console for your terminal"
   homepage "https://github.com/Farrooss/hackterm"
   url "https://github.com/Farrooss/hackterm/archive/refs/tags/v0.0.2.tar.gz"

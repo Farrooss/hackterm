@@ -192,6 +192,8 @@ Include your OS, terminal and `hackterm --version`. A screenshot helps if someth
 
 Ideas, bug reports and pull requests are welcome. hackterm is a single file (`hackterm.py`) with no dependencies, and it should stay that way.
 
+**AI is welcome here.** Made something with Claude, Copilot, Cursor or your own agent? Send it in. Pull requests and issues written with AI help are just as welcome as hand-typed ones. hackterm is a fake hacker console, so it seems only fair to let the machines hack on it too. Just give your change a quick run before you open the pull request.
+
 ## License
 
 [MIT](LICENSE)

@@ -69,11 +69,12 @@ def lum(c):
 
 
 def saver_theme(th):
-    """The screensaver's version of a theme: always a dark background (a light Omarchy theme
-    would light every pixel), readable text on it, dimmer borders and untinted panels."""
+    """The screensaver's version of a theme: a near-black background (a light or greyish
+    Omarchy theme would light every pixel), readable text on it, dimmer borders and untinted
+    panels."""
     bg, pri, txt, hi = th["bg"], th["pri"], th["txt"], th["hi"]
-    if lum(bg) > 0.15:
-        bg = rgb(6, 6, 8)
+    if lum(bg) > 0.03:   # near-black, keeping the theme's tint
+        bg = mix(bg, 0, 1 - 0.03 / lum(bg))
     if lum(pri) < 0.3:
         pri = mix(pri, rgb(255, 255, 255), 0.4)
     if lum(txt) < 0.45:
@@ -1505,7 +1506,7 @@ DRIFT_MX, DRIFT_MY = max(DRIFT_X), max(DRIFT_Y)
 SHUFFLE_EVERY = 240              # seconds between layout reshuffles
 SHUFFLE_VARIANTS = [0, 1, 3, 2]  # normal, mirrored, mirrored + flipped, flipped
 SHUFFLE_RATIOS = [(0.42, 0.40, 0.66), (0.37, 0.45, 0.61), (0.47, 0.35, 0.70), (0.40, 0.43, 0.63)]
-MAP_EVERY = 150                  # seconds before the map panel moves to the next map
+MAP_EVERY = 90                   # seconds before the map panel moves to the next map
 RAIN_EVERY = (480, 720)          # seconds between matrix-rain interludes
 BLACKOUT_EVERY, BLACKOUT_LEN = 900, 2.5   # a fully dark screen now and then
 

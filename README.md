@@ -143,6 +143,7 @@ Tip: to pull off the prank, start it with `--no-boot`, press `F6` to hide the hi
 | `--speed X` | panel speed from 0.25 to 2 (default 0.6) |
 | `--chars N` | the most characters one keypress types (default 2) |
 | `--screensaver` | run as a screensaver that is safe for OLED screens; any key quits |
+| `--screensavepreview` | the screensaver sped up, so you see everything it does in about a minute |
 
 For example, `hackterm --no-boot --theme 1 --map 2 --speed 0.4` starts on an amber radar, running slowly.
 
@@ -157,6 +158,8 @@ an OLED screen, so no part of the picture stays in one place for long:
 - the map changes every 90 seconds, matrix rain takes over every 8 to 12 minutes, and the screen goes black for 2.5 seconds every 15 minutes
 
 It works with `--theme`, `--map`, `--speed` and `--no-boot`.
+To see it all without waiting, run `hackterm --screensavepreview`: the moves, layouts, maps, rain
+and blackout all happen within the first minute.
 `tools/burnin_check.py` simulates two hours and checks that no cell shows the same thing for 2 minutes.
 
 ## Requirements

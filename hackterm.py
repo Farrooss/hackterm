@@ -1509,6 +1509,12 @@ SHUFFLE_RATIOS = [(0.42, 0.40, 0.66), (0.37, 0.45, 0.61), (0.47, 0.35, 0.70), (0
 MAP_EVERY = 90                   # seconds before the map panel moves to the next map
 RAIN_EVERY = (480, 720)          # seconds between matrix-rain interludes
 BLACKOUT_EVERY, BLACKOUT_LEN = 900, 2.5   # a fully dark screen now and then
+SAVER_TIMING = dict(drift=DRIFT_EVERY, shuffle=SHUFFLE_EVERY, map=MAP_EVERY,
+                    rain_first=RAIN_EVERY, rain=RAIN_EVERY, rain_len=12,
+                    blackout=BLACKOUT_EVERY, blackout_len=BLACKOUT_LEN)
+# --screensavepreview: the same things, squeezed so all of them happen in the first minute
+PREVIEW_TIMING = dict(drift=2, shuffle=8, map=6, rain_first=(34, 35), rain=(55, 65), rain_len=6,
+                      blackout=50, blackout_len=2.5)
 
 
 class App:
@@ -1519,25 +1525,28 @@ class App:
         return SHUFFLE_VARIANTS[k % 4], SHUFFLE_RATIOS[(k * 3 + k // 4) % 4]
 
     def reshuffle(self, t):
-        k = int(t // SHUFFLE_EVERY)
+        k = int(t // self.tm["shuffle"])
         if k != self.shuffle_k:
             self.shuffle_k = k
             self.glitch_until = max(self.glitch_until, t + 0.3)
 
     def saver_scenes(self, t):
         """Change the scene now and then: the next map, a matrix-rain break."""
-        k = int(t // MAP_EVERY)
+        k = int(t // self.tm["map"])
+        if self.map_k is None:   # count from the end of the boot, keeping the starting map
+            self.map_k = k
         if k != self.map_k:
             self.map_k = k
             self.mi = (self.mi + 1) % len(self.maps)
             self.glitch_until = max(self.glitch_until, t + 0.2)
         if t > self.next_rain:
-            self.next_rain = t + R.uniform(*RAIN_EVERY)
+            self.next_rain = t + R.uniform(*self.tm["rain"])
             if not self.overlay and self.matrix_until < t and not self.melt:
                 self.trigger("matrix", t)
 
     def blackout(self, t):
-        return self.saver and t > BLACKOUT_EVERY / 2 and t % BLACKOUT_EVERY > BLACKOUT_EVERY - BLACKOUT_LEN
+        every, length = self.tm["blackout"], self.tm["blackout_len"]
+        return self.saver and t > every / 2 and t % every > every - length
 
     def title_off(self, w, title):
         """How far along its border a panel title sits: in the screensaver, a new spot per drift step."""
@@ -1552,14 +1561,15 @@ class App:
         else:
             self.scr.resize(w, h)
 
-    def start_saver(self):
+    def start_saver(self, preview=False):
         self.saver = True
+        self.tm = PREVIEW_TIMING if preview else SAVER_TIMING
         self.hints = False      # no key hints: there are no keys to press
         self.hint_until = 0
-        self.next_rain = R.uniform(*RAIN_EVERY)
+        self.next_rain = R.uniform(*self.tm["rain_first"])
 
     def drift(self, t):
-        k = int(t // DRIFT_EVERY)
+        k = int(t // self.tm["drift"])
         if k == self.drift_k:
             return
         self.drift_k = k
@@ -1610,10 +1620,11 @@ class App:
         self.speed = 0.6       # panel animation speed multiplier (F7/F8)
         self.chars = 2         # max characters typed per keypress
         self.saver = False     # --screensaver: burn-in safe, any key quits
+        self.tm = SAVER_TIMING
         self.drift_k = 0
         self.shuffle_k = 0
         self.saver_themes = {}
-        self.map_k = 0
+        self.map_k = None
         self.next_rain = 0
 
     @property
@@ -1641,7 +1652,7 @@ class App:
             self.overlay = Exfil(t)
         elif name == "matrix":
             self.overlay = None
-            self.matrix_until = 0 if self.matrix_until > t else t + 12
+            self.matrix_until = 0 if self.matrix_until > t else t + self.tm["rain_len"]
 
     def on_key(self, k, t):
         if self.saver:   # a screensaver: any key ends it
@@ -1666,7 +1677,7 @@ class App:
             self.last_key = t
             self.activity = min(1.0, self.activity + 0.06)
             self.crack.boost(0.08)
-            if self.matrix_until > t and t - (self.matrix_until - 12) > 1.0:
+            if self.matrix_until > t and t - (self.matrix_until - self.tm["rain_len"]) > 1.0:
                 self.matrix_until = 0
         elif k == "TAB":
             self.trigger("grant", t)
@@ -1841,7 +1852,7 @@ class App:
         scr, th = self.scr, self.th
         self.rain.setup(scr.w, scr.h)
         self.rain.draw(scr, 0, 0, th, 1.0)
-        e = t - (self.matrix_until - 12)
+        e = t - (self.matrix_until - self.tm["rain_len"])
         if e > 2.0:
             word = "SYSTEM OVERRIDE"
             if big_width(word) + 6 < scr.w:
@@ -2017,14 +2028,15 @@ def main():
               "         --speed X   panel animation speed, 0.25-2 (default 0.6)\n"
               "         --chars N   max characters typed per keypress (default 2)\n"
               "         --map N     start on map N: 0 globe, 1 network, 2 radar, 3 traceroute\n"
-              "         --screensaver  run by itself, safe for OLED screens; any key quits")
+              "         --screensaver  run by itself, safe for OLED screens; any key quits\n"
+              "         --screensavepreview  the screensaver with everything sped up to fit in a minute")
         return
     if not sys.stdin.isatty():
         print("hackterm needs an interactive terminal", file=sys.stderr)
         sys.exit(1)
     app = App(boot="--no-boot" not in sys.argv)
-    if "--screensaver" in sys.argv:
-        app.start_saver()
+    if "--screensaver" in sys.argv or "--screensavepreview" in sys.argv:
+        app.start_saver(preview="--screensavepreview" in sys.argv)
     if "--theme" in sys.argv:
         try:
             app.ti = int(sys.argv[sys.argv.index("--theme") + 1]) % len(app.themes)

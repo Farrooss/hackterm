@@ -1,12 +1,20 @@
 # Changelog
 
-## [Unreleased]
+## [0.0.4] - 2026-11-28 — The Saver
+
+hackterm can now be your screensaver.
 
 ### Added
 
-- `--screensaver`: hackterm runs by itself and quits on any key. It is safe to leave on an OLED screen: the picture drifts, the layout reshuffles, titles move, borders are dimmer, the background is near-black, maps change by themselves, and the screen blanks briefly every 15 minutes.
-- `--screensavepreview`: the screensaver sped up, so everything it does happens within a minute.
-- `tools/burnin_check.py` simulates the screensaver and checks that no cell stays the same for long.
+- `hackterm --screensaver` runs by itself and quits on any key. It's made to be left on, even on an OLED screen, so no part of the picture stays in one place for long:
+  - the picture moves by one cell every 20 seconds
+  - every 4 minutes the panels swap sides and change size
+  - panel titles move along their borders, the borders are dimmer, and the background is near-black, even with a light theme
+  - the map changes every 90 seconds, matrix rain takes over every 8 to 12 minutes, and the screen goes black for 2.5 seconds every 15 minutes
+
+  It works with `--theme`, `--map`, `--speed` and `--no-boot`.
+- `hackterm --screensavepreview` shows everything the screensaver does in about a minute, so you can see it without waiting.
+- For contributors: `tools/burnin_check.py` (in the source) simulates two hours of the screensaver and checks that no cell shows the same thing for 2 minutes.
 
 ## [0.0.3] - 2026-11-26
 

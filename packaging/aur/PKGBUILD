@@ -8,7 +8,7 @@ url="https://github.com/Farrooss/hackterm"
 license=('MIT')
 depends=('python')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('2c77c30936955652093f3db77a3c0a9a1fae3cc7a75ff37ee6fc53216d97e74d')
 
 check() {
   cd "$pkgname-$pkgver"

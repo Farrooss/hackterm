@@ -1505,6 +1505,9 @@ DRIFT_MX, DRIFT_MY = max(DRIFT_X), max(DRIFT_Y)
 SHUFFLE_EVERY = 240              # seconds between layout reshuffles
 SHUFFLE_VARIANTS = [0, 1, 3, 2]  # normal, mirrored, mirrored + flipped, flipped
 SHUFFLE_RATIOS = [(0.42, 0.40, 0.66), (0.37, 0.45, 0.61), (0.47, 0.35, 0.70), (0.40, 0.43, 0.63)]
+MAP_EVERY = 150                  # seconds before the map panel moves to the next map
+RAIN_EVERY = (480, 720)          # seconds between matrix-rain interludes
+BLACKOUT_EVERY, BLACKOUT_LEN = 900, 2.5   # a fully dark screen now and then
 
 
 class App:
@@ -1519,6 +1522,21 @@ class App:
         if k != self.shuffle_k:
             self.shuffle_k = k
             self.glitch_until = max(self.glitch_until, t + 0.3)
+
+    def saver_scenes(self, t):
+        """Change the scene now and then: the next map, a matrix-rain break."""
+        k = int(t // MAP_EVERY)
+        if k != self.map_k:
+            self.map_k = k
+            self.mi = (self.mi + 1) % len(self.maps)
+            self.glitch_until = max(self.glitch_until, t + 0.2)
+        if t > self.next_rain:
+            self.next_rain = t + R.uniform(*RAIN_EVERY)
+            if not self.overlay and self.matrix_until < t and not self.melt:
+                self.trigger("matrix", t)
+
+    def blackout(self, t):
+        return self.saver and t > BLACKOUT_EVERY / 2 and t % BLACKOUT_EVERY > BLACKOUT_EVERY - BLACKOUT_LEN
 
     def title_off(self, w, title):
         """How far along its border a panel title sits: in the screensaver, a new spot per drift step."""
@@ -1537,6 +1555,7 @@ class App:
         self.saver = True
         self.hints = False      # no key hints: there are no keys to press
         self.hint_until = 0
+        self.next_rain = R.uniform(*RAIN_EVERY)
 
     def drift(self, t):
         k = int(t // DRIFT_EVERY)
@@ -1593,6 +1612,8 @@ class App:
         self.drift_k = 0
         self.shuffle_k = 0
         self.saver_themes = {}
+        self.map_k = 0
+        self.next_rain = 0
 
     @property
     def th(self):
@@ -1686,6 +1707,8 @@ class App:
         if self.saver:
             self.drift(t)
             self.reshuffle(t)
+            if self.phase == "main":
+                self.saver_scenes(t)
         if self.phase != "main":
             self.rain.update(dt)
             if t > self.boot_end:
@@ -1735,6 +1758,9 @@ class App:
         bgc = th["bg"]
         if t < self.flash_until:
             bgc = mix(th["bg"], th["pri"], 0.5)
+        if self.blackout(t):
+            scr.clear(0)
+            return
         scr.clear(bgc)
         if scr.w < 60 or scr.h < 20:
             msg = "ENLARGE TERMINAL ▸ 60×20 MIN"

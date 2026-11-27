@@ -82,12 +82,20 @@ def omarchy_theme():
 
 
 class Screen:
+    """A canvas of w×h cells. With margins (mx, my) the canvas is smaller than the
+    terminal (tw×tht) and is drawn at offset (ox, oy), so it can drift around."""
+
     def __init__(self):
         self.prev = None
-        self.w = self.h = 0
+        self.w = self.h = self.tw = self.tht = 0
+        self.mx = self.my = self.ox = self.oy = 0
+        self.pad = 0
 
-    def resize(self, w, h):
-        self.w, self.h = w, h
+    def resize(self, w, h, mx=0, my=0):
+        self.tw, self.tht = w, h
+        self.mx, self.my = mx, my
+        self.ox, self.oy = min(self.ox, mx), min(self.oy, my)
+        self.w, self.h = w - mx, h - my
         self.prev = None
 
     def clear(self, bg):
@@ -95,6 +103,28 @@ class Screen:
         self.ch = [" "] * n
         self.fg = [0] * n
         self.bg = [bg] * n
+        self.pad = bg
+
+    def compose(self):
+        """The cells for the whole terminal: the canvas placed at (ox, oy) on a plain background."""
+        if not (self.mx or self.my):
+            return self.ch, self.fg, self.bg
+        w, tw, ox = self.w, self.tw, self.ox
+        right = tw - w - ox
+        blank_c, blank_f, blank_b = [" "] * tw, [0] * tw, [self.pad] * tw
+        ch, fg, bg = [], [], []
+        for y in range(self.tht):
+            cy = y - self.oy
+            if 0 <= cy < self.h:
+                a, b = cy * w, cy * w + w
+                ch += [" "] * ox + self.ch[a:b] + [" "] * right
+                fg += [0] * ox + self.fg[a:b] + [0] * right
+                bg += [self.pad] * ox + self.bg[a:b] + [self.pad] * right
+            else:
+                ch += blank_c
+                fg += blank_f
+                bg += blank_b
+        return ch, fg, bg
 
     def put(self, x, y, c, fg, bg=None):
         if 0 <= x < self.w and 0 <= y < self.h:
@@ -140,11 +170,11 @@ class Screen:
 
     def render(self):
         out = ["\x1b[?2026h"]
-        w = self.w
-        ch, fg, bg = self.ch, self.fg, self.bg
+        w = self.tw
+        ch, fg, bg = self.compose()
         prev = self.prev
         lf = lb = None
-        for y in range(self.h):
+        for y in range(self.tht):
             base = y * w
             synced = False
             for x in range(w):
@@ -1445,12 +1475,41 @@ def layout(W, H, variant=0, ratios=(0.42, 0.40, 0.66)):
     return lay
 
 
+# screensaver: keep any one cell from showing the same thing for long (burn-in safe)
+DRIFT_EVERY = 20                 # seconds between one-cell canvas moves
+DRIFT_X = [0, 1, 2, 3, 4, 3, 2, 1]   # diagonal path: both axes change on every step,
+DRIFT_Y = [0, 1, 2, 1]               # so neither vertical nor horizontal lines stay put
+DRIFT_MX, DRIFT_MY = max(DRIFT_X), max(DRIFT_Y)
+
+
 class App:
     def layout_args(self):
         return 0, (0.42, 0.40, 0.66)
 
     def title_off(self, w, title):
         return 0
+
+    def resize(self, w, h):
+        if self.saver:   # drift room, unless the terminal is too small to spare it
+            self.scr.resize(w, h, min(DRIFT_MX, max(0, w - 60)), min(DRIFT_MY, max(0, h - 20)))
+        else:
+            self.scr.resize(w, h)
+
+    def start_saver(self):
+        self.saver = True
+        self.hints = False      # no key hints: there are no keys to press
+        self.hint_until = 0
+
+    def drift(self, t):
+        k = int(t // DRIFT_EVERY)
+        if k == self.drift_k:
+            return
+        self.drift_k = k
+        scr = self.scr
+        ox, oy = min(DRIFT_X[k % len(DRIFT_X)], scr.mx), min(DRIFT_Y[k % len(DRIFT_Y)], scr.my)
+        if (ox, oy) != (scr.ox, scr.oy):
+            scr.ox, scr.oy = ox, oy
+            self.glitch_until = max(self.glitch_until, t + 0.08)   # hide the jump in a tear
 
     def __init__(self, boot=True):
         self.scr = Screen()
@@ -1492,6 +1551,8 @@ class App:
         self.typer.advance(400)
         self.speed = 0.6       # panel animation speed multiplier (F7/F8)
         self.chars = 2         # max characters typed per keypress
+        self.saver = False     # --screensaver: burn-in safe, any key quits
+        self.drift_k = 0
 
     @property
     def th(self):
@@ -1517,6 +1578,8 @@ class App:
             self.matrix_until = 0 if self.matrix_until > t else t + 12
 
     def on_key(self, k, t):
+        if self.saver:   # a screensaver: any key ends it
+            raise SystemExit
         if self.phase == "boot":
             if k in ("ESC", "QUIT"):
                 if k == "QUIT":
@@ -1576,6 +1639,8 @@ class App:
     # ── update
     def update(self, dt, t):
         self.activity = max(0.0, self.activity - dt * 0.25)
+        if self.saver:
+            self.drift(t)
         if self.phase != "main":
             self.rain.update(dt)
             if t > self.boot_end:
@@ -1841,7 +1906,7 @@ class App:
                 if self.resized:
                     self.resized = False
                     sz = os.get_terminal_size(sys.stdout.fileno())
-                    self.scr.resize(sz.columns, sz.lines)
+                    self.resize(sz.columns, sz.lines)
                     os.write(sys.stdout.fileno(), b"\x1b[0m\x1b[2J")
                 self.update(dt, t)
                 self.draw(t)
@@ -1882,6 +1947,8 @@ def main():
         print("hackterm needs an interactive terminal", file=sys.stderr)
         sys.exit(1)
     app = App(boot="--no-boot" not in sys.argv)
+    if "--screensaver" in sys.argv:
+        app.start_saver()
     if "--theme" in sys.argv:
         try:
             app.ti = int(sys.argv[sys.argv.index("--theme") + 1]) % len(app.themes)

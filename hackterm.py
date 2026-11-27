@@ -116,7 +116,7 @@ class Screen:
             for xx in range(x, x + w):
                 self.put(xx, yy, c, bg, bg)
 
-    def box(self, x, y, w, h, col, title=None, tcol=None, bg=None):
+    def box(self, x, y, w, h, col, title=None, tcol=None, bg=None, toff=0):
         if w < 2 or h < 2:
             return
         if bg is not None:
@@ -133,6 +133,7 @@ class Screen:
         self.put(x + w - 1, y + h - 1, "┘", col)
         if title:
             t = f" {title} "[: max(0, w - 6)]
+            x += max(0, min(toff, w - 6 - len(t)))   # titles may sit further along the border
             self.put(x + 2, y, "┤", col)
             self.text(x + 3, y, t, tcol or col)
             self.put(x + 3 + len(t), y, "├", col)
@@ -1413,7 +1414,44 @@ FOOTER_MSGS = ["[*] payload staged in /dev/shm/.x", "[+] session 4 opened (10.13
                "[*] tor circuit rebuilt", "[+] new vector: CVE-2026-31337"]
 
 
+def layout(W, H, variant=0, ratios=(0.42, 0.40, 0.66)):
+    """Panel rectangles (x, y, w, h) for the main screen, between header and footer.
+
+    variant 0 is the normal layout; 1 mirrors it left/right, 2 flips it top/bottom,
+    3 does both. ratios are the top-row height and the map and terminal widths.
+    """
+    top, bot = 1, H - 1
+    body = bot - top
+    rt, rg, rl = ratios
+    th_top = max(8, int(body * rt))
+    gw = max(30, int(W * rg))
+    lw = max(40, int(W * rl))
+    rw = W - lw
+    crack_h = 7 if body - th_top >= 18 else 5
+    term_h = body - th_top - crack_h
+    lay = {
+        "map": (0, top, gw, th_top),
+        "mem": (gw, top, W - gw, th_top),
+        "term": (0, top + th_top, lw, term_h),
+        "crack": (0, top + th_top + term_h, lw, crack_h),
+        "sys": (lw, top + th_top, rw, body - th_top),
+    }
+    for k, (x, y, w, h) in lay.items():
+        if variant & 1:
+            x = W - x - w
+        if variant & 2:
+            y = 2 * top + body - y - h
+        lay[k] = (x, y, w, h)
+    return lay
+
+
 class App:
+    def layout_args(self):
+        return 0, (0.42, 0.40, 0.66)
+
+    def title_off(self, w, title):
+        return 0
+
     def __init__(self, boot=True):
         self.scr = Screen()
         self.themes = THEMES[:]
@@ -1701,32 +1739,21 @@ class App:
             scr.text((W - len(mid)) // 2, 0, mid, mcol, hb)
         scr.text(W - len(clock) - 1, 0, clock, th["hi"], hb)
 
-        # layout
-        top, bot = 1, H - 1
-        body = bot - top
-        th_top = max(8, int(body * 0.42))
-        gw = max(30, int(W * 0.40))
-        lw = max(40, int(W * 0.66))
-        rw = W - lw
-        crack_h = 7 if body - th_top >= 18 else 5
-        term_h = body - th_top - crack_h
-
+        # panels
+        lay = layout(W, H, *self.layout_args())
         view = self.maps[self.mi]
-        scr.box(0, top, gw, th_top, bcol, view.title(t), tcol, bg=pbg)
-        view.draw(scr, 1, top + 1, gw - 2, th_top - 2, th, t)
-
-        scr.box(gw, top, W - gw, th_top, bcol, "MEMORY :: 10.13.37.42 /proc/1/mem", tcol, bg=pbg)
-        self.hex.draw(scr, gw + 2, top + 1, W - gw - 4, th_top - 2, th, t)
-
         spin = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"[int(t * 12) % 10]
-        scr.box(0, top + th_top, lw, term_h, bcol, f"TERMINAL :: root@ghost {spin}", tcol, bg=pbg)
-        self.typer.draw(scr, 1, top + th_top + 1, lw - 3, term_h - 2, th, t)
-
-        scr.box(0, top + th_top + term_h, lw, crack_h, bcol, "PASSWORD CRACKER :: GPU x8", tcol, bg=pbg)
-        self.crack.draw(scr, 2, top + th_top + term_h + 1, lw - 4, crack_h - 2, th, t)
-
-        scr.box(lw, top + th_top, rw, body - th_top, bcol, "SYSTEMS", tcol, bg=pbg)
-        self.sys.draw(scr, lw + 2, top + th_top + 1, rw - 4, body - th_top - 2, th, t)
+        panels = (
+            ("map", view.title(t), view, 1, 2),
+            ("mem", "MEMORY :: 10.13.37.42 /proc/1/mem", self.hex, 2, 4),
+            ("term", f"TERMINAL :: root@ghost {spin}", self.typer, 1, 3),
+            ("crack", "PASSWORD CRACKER :: GPU x8", self.crack, 2, 4),
+            ("sys", "SYSTEMS", self.sys, 2, 4),
+        )
+        for key, title, part, pad, shrink in panels:
+            x, y, w, h = lay[key]
+            scr.box(x, y, w, h, bcol, title, tcol, bg=pbg, toff=self.title_off(w, title))
+            part.draw(scr, x + pad, y + 1, w - shrink, h - 2, th, t)
 
         # footer
         fb = mix(th["bg"], th["pri"], 0.08)

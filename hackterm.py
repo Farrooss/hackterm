@@ -64,6 +64,28 @@ THEMES = [
 ]
 
 
+def lum(c):
+    return (0.2126 * (c >> 16) + 0.7152 * ((c >> 8) & 255) + 0.0722 * (c & 255)) / 255
+
+
+def saver_theme(th):
+    """The screensaver's version of a theme: always a dark background (a light Omarchy theme
+    would light every pixel), readable text on it, dimmer borders and untinted panels."""
+    bg, pri, txt, hi = th["bg"], th["pri"], th["txt"], th["hi"]
+    if lum(bg) > 0.15:
+        bg = rgb(6, 6, 8)
+    if lum(pri) < 0.3:
+        pri = mix(pri, rgb(255, 255, 255), 0.4)
+    if lum(txt) < 0.45:
+        txt = mix(pri, rgb(255, 255, 255), 0.35)
+    if lum(hi) < 0.6:
+        hi = rgb(235, 235, 235)
+    s = mk_theme(th["name"], pri, th["acc"], hi, th["warn"], th["alert"], bg, txt)
+    s["border"] = mix(bg, pri, 0.3)
+    s["panel"] = bg
+    return s
+
+
 def omarchy_theme():
     p = os.path.expanduser("~/.local/state/omarchy/current/theme/colors.toml")
     try:
@@ -1499,7 +1521,11 @@ class App:
             self.glitch_until = max(self.glitch_until, t + 0.3)
 
     def title_off(self, w, title):
-        return 0
+        """How far along its border a panel title sits: in the screensaver, a new spot per drift step."""
+        room = w - 8 - len(title)
+        if not self.saver or room <= 0:
+            return 0
+        return (self.drift_k * 5 + len(title)) % (room + 1)
 
     def resize(self, w, h):
         if self.saver:   # drift room, unless the terminal is too small to spare it
@@ -1566,9 +1592,14 @@ class App:
         self.saver = False     # --screensaver: burn-in safe, any key quits
         self.drift_k = 0
         self.shuffle_k = 0
+        self.saver_themes = {}
 
     @property
     def th(self):
+        if self.saver:
+            if self.ti not in self.saver_themes:
+                self.saver_themes[self.ti] = saver_theme(self.themes[self.ti])
+            return self.saver_themes[self.ti]
         return self.themes[self.ti]
 
     # ── events
@@ -1800,12 +1831,15 @@ class App:
         tcol = th["hi"] if alarm else th["pri"]
         pbg = th["panel"] if t >= self.flash_until else None
 
-        # header
-        scr.fill(0, 0, W, 1, mix(th["bg"], th["pri"], 0.12))
-        hb = mix(th["bg"], th["pri"], 0.12)
-        cx = scr.text(1, 0, "▓▒░ ", th["pri"], hb)
+        # header (the screensaver has no tinted bars, and swaps the name and clock with the layout)
+        hb = th["bg"] if self.saver else mix(th["bg"], th["pri"], 0.12)
+        scr.fill(0, 0, W, 1, hb)
+        swap = self.layout_args()[0] & 1
+        name_w = len(f"▓▒░ HACKTERM v{__version__} ░▒▓")
+        cx = scr.text(W - name_w - 1 if swap else 1, 0, "▓▒░ ", th["pri"], hb)
         cx = scr.text(cx, 0, "HACKTERM", th["hi"], hb)
         cx = scr.text(cx, 0, f" v{__version__} ░▒▓", th["pri"], hb)
+        cx = name_w + 1
         if alarm or t < self.alarm_until:
             mid = "!! INTRUSION COUNTERMEASURES ACTIVE !!"
             mcol = th["alert"] if int(t * 6) % 2 else th["hi"]
@@ -1816,7 +1850,7 @@ class App:
         clock = time.strftime("%Y-%m-%d %H:%M:%S")
         if len(mid) + cx + len(clock) + 6 < W:
             scr.text((W - len(mid)) // 2, 0, mid, mcol, hb)
-        scr.text(W - len(clock) - 1, 0, clock, th["hi"], hb)
+        scr.text(1 if swap else W - len(clock) - 1, 0, clock, th["hi"], hb)
 
         # panels
         lay = layout(W, H, *self.layout_args())
@@ -1835,7 +1869,7 @@ class App:
             part.draw(scr, x + pad, y + 1, w - shrink, h - 2, th, t)
 
         # footer
-        fb = mix(th["bg"], th["pri"], 0.08)
+        fb = th["bg"] if self.saver else mix(th["bg"], th["pri"], 0.08)
         scr.fill(0, H - 1, W, 1, fb)
         show_hints = self.hints and (self.hint_until is None or t < self.hint_until)
         if show_hints:

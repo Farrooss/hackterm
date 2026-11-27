@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `--screensaver`: hackterm runs by itself and quits on any key. It is safe to leave on an OLED screen: the picture drifts, the layout reshuffles, titles move, borders are dimmer, the background is near-black, maps change by themselves, and the screen blanks briefly every 15 minutes.
+- `tools/burnin_check.py` simulates the screensaver and checks that no cell stays the same for long.
+
 ## [0.0.3] - 2026-11-26
 
 ### Changed

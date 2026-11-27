@@ -7,7 +7,7 @@ F1 trace       F2 matrix       F3 exfil       F4 theme       F5 auto-events
 F6 show/hide key hints         F7 / F8 -> slower / faster
 F9 cycle map panel (globe, network, radar, traceroute)
 F10 melt a corner of the screen
-Esc Esc / Ctrl-C -> quit
+Esc Esc / Ctrl-C -> quit      (--screensaver: any key quits)
 """
 import math
 import os
@@ -2016,7 +2016,8 @@ def main():
         print("Options: --version   print the version and exit\n         --no-boot   skip the boot sequence\n         --theme N   start on theme N (0-4)\n"
               "         --speed X   panel animation speed, 0.25-2 (default 0.6)\n"
               "         --chars N   max characters typed per keypress (default 2)\n"
-              "         --map N     start on map N: 0 globe, 1 network, 2 radar, 3 traceroute")
+              "         --map N     start on map N: 0 globe, 1 network, 2 radar, 3 traceroute\n"
+              "         --screensaver  run by itself, safe for OLED screens; any key quits")
         return
     if not sys.stdin.isatty():
         print("hackterm needs an interactive terminal", file=sys.stderr)

@@ -1480,11 +1480,23 @@ DRIFT_EVERY = 20                 # seconds between one-cell canvas moves
 DRIFT_X = [0, 1, 2, 3, 4, 3, 2, 1]   # diagonal path: both axes change on every step,
 DRIFT_Y = [0, 1, 2, 1]               # so neither vertical nor horizontal lines stay put
 DRIFT_MX, DRIFT_MY = max(DRIFT_X), max(DRIFT_Y)
+SHUFFLE_EVERY = 240              # seconds between layout reshuffles
+SHUFFLE_VARIANTS = [0, 1, 3, 2]  # normal, mirrored, mirrored + flipped, flipped
+SHUFFLE_RATIOS = [(0.42, 0.40, 0.66), (0.37, 0.45, 0.61), (0.47, 0.35, 0.70), (0.40, 0.43, 0.63)]
 
 
 class App:
     def layout_args(self):
-        return 0, (0.42, 0.40, 0.66)
+        if not self.saver:
+            return 0, SHUFFLE_RATIOS[0]
+        k = self.shuffle_k
+        return SHUFFLE_VARIANTS[k % 4], SHUFFLE_RATIOS[(k * 3 + k // 4) % 4]
+
+    def reshuffle(self, t):
+        k = int(t // SHUFFLE_EVERY)
+        if k != self.shuffle_k:
+            self.shuffle_k = k
+            self.glitch_until = max(self.glitch_until, t + 0.3)
 
     def title_off(self, w, title):
         return 0
@@ -1553,6 +1565,7 @@ class App:
         self.chars = 2         # max characters typed per keypress
         self.saver = False     # --screensaver: burn-in safe, any key quits
         self.drift_k = 0
+        self.shuffle_k = 0
 
     @property
     def th(self):
@@ -1641,6 +1654,7 @@ class App:
         self.activity = max(0.0, self.activity - dt * 0.25)
         if self.saver:
             self.drift(t)
+            self.reshuffle(t)
         if self.phase != "main":
             self.rain.update(dt)
             if t > self.boot_end:

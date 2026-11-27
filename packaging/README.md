@@ -8,7 +8,10 @@ Pushing a tag like `v0.0.3` runs `.github/workflows/release.yml`, which:
 2. builds `.deb`, `.rpm`, `.apk` and Arch packages with [nfpm](https://nfpm.goreleaser.com) from `packaging/nfpm.yaml`
 3. builds the Python wheel and sdist
 4. builds standalone PyInstaller binaries for x86_64 and aarch64 on Ubuntu 22.04, so they run on older glibc too
-5. creates the GitHub release with all of the above, a `SHA256SUMS` file, and notes taken from that version's section of `CHANGELOG.md`
+5. builds a Flatpak bundle (`packaging/flatpak/`, in Flathub's build container), a Snap
+   (`snap/snapcraft.yaml`) and AppImages for x86_64 and aarch64 (`packaging/appimage/`, wrapping
+   the standalone binaries)
+6. creates the GitHub release with all of the above, a `SHA256SUMS` file, and notes taken from that version's section of `CHANGELOG.md`
 
 To try the build without releasing, run the workflow by hand from the Actions tab
 (`gh workflow run release.yml`). It uploads the files as workflow artifacts instead.

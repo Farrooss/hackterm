@@ -8,6 +8,9 @@
 | Arch, Omarchy, Manjaro | `hackterm-VERSION-1-any.pkg.tar.zst` | `sudo pacman -U ./hackterm-VERSION-1-any.pkg.tar.zst` |
 | Alpine | `hackterm_VERSION-r1_noarch.apk` | `sudo apk add --allow-untrusted ./hackterm_VERSION-r1_noarch.apk` |
 | macOS, or Linux with Homebrew | nothing | `brew install farrooss/tap/hackterm` |
+| Any Linux, as a Flatpak | `hackterm-x86_64.flatpak` | `flatpak install --user ./hackterm-x86_64.flatpak` |
+| Any Linux, as a Snap | `hackterm_VERSION_amd64.snap` | `sudo snap install --dangerous ./hackterm_VERSION_amd64.snap` |
+| Any Linux, as an AppImage | `hackterm-x86_64.AppImage` (Intel/AMD) or `hackterm-aarch64.AppImage` (ARM) | `chmod +x hackterm-*.AppImage` then run it |
 | Any Linux, no Python | `hackterm-linux-x86_64` (Intel/AMD) or `hackterm-linux-aarch64` (ARM) | `chmod +x hackterm-linux-*` then `./hackterm-linux-x86_64` |
 | Anywhere with uv or pipx | nothing | `uv tool install git+https://github.com/Farrooss/hackterm` |
 

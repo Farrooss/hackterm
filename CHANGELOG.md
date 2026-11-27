@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- A Flatpak, a Snap and AppImages (x86_64 and ARM) on each release. Flathub doesn't list terminal-only apps, so the Flatpak is a download from the release page.
+- An app icon, and a menu entry with Screensaver and Screensaver Preview actions, for the Flatpak, Snap and AppImage.
+
 ## [0.0.4] - 2026-11-28 — The Saver
 
 hackterm can now be your screensaver.

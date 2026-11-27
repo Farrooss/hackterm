@@ -90,9 +90,77 @@ jobs:
           name: binary-${{ matrix.arch }}
           path: dist/hackterm-linux-*
 
+  appimage:
+    # Wraps the standalone binary from the binary job.
+    needs: binary
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: binary-${{ matrix.arch }}
+          path: bin
+      - name: Build the AppImage
+        run: |
+          curl -fsSL -o appimagetool \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${{ matrix.arch }}.AppImage"
+          chmod +x appimagetool bin/hackterm-linux-${{ matrix.arch }}
+          APPIMAGETOOL=$PWD/appimagetool packaging/appimage/build-appimage.sh \
+            bin/hackterm-linux-${{ matrix.arch }} ${{ matrix.arch }} dist
+          ./dist/hackterm-${{ matrix.arch }}.AppImage --appimage-extract-and-run --version
+      - uses: actions/upload-artifact@v7
+        with:
+          name: appimage-${{ matrix.arch }}
+          path: dist/*.AppImage
+
+  flatpak:
+    # Flathub's build image: it has flatpak-builder and the runtime, and can sandbox builds.
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-26.08
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the Flatpak bundle
+        run: |
+          flatpak-builder --repo=repo --force-clean --disable-rofiles-fuse build \
+            packaging/flatpak/io.github.Farrooss.hackterm.yml
+          mkdir -p dist
+          flatpak build-bundle repo dist/hackterm-x86_64.flatpak io.github.Farrooss.hackterm \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+          ls -lh dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: flatpak
+          path: dist/*.flatpak
+
+  snap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the snap version matches hackterm.py
+        run: |
+          v=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' hackterm.py)
+          grep -q "^version: \"$v\"$" snap/snapcraft.yaml || { echo "::error::snap/snapcraft.yaml version is not $v"; exit 1; }
+      - uses: snapcore/action-build@v1
+        id: snap
+      - name: Collect the snap
+        run: mkdir -p dist && mv "${{ steps.snap.outputs.snap }}" dist/ && ls -lh dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: snap
+          path: dist/*.snap
+
   release:
     if: github.ref_type == 'tag'
-    needs: [packages, binary]
+    needs: [packages, binary, appimage, flatpak, snap]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

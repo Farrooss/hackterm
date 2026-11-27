@@ -1,0 +1,43 @@
+# Snap of hackterm. Built by the release workflow (snapcore/action-build); locally: snapcraft pack
+name: hackterm
+title: hackterm
+version: "0.0.4"
+summary: A cinematic fake-hacking console for your terminal
+description: |
+  Type anything and fluent exploit code pours out, while a globe, a radar, a hex dump and a
+  password cracker run around it. Pure theatre: it makes no network connections and runs no
+  commands. Includes a screensaver mode that is safe for OLED screens
+  (hackterm --screensaver).
+license: MIT
+website: https://github.com/Farrooss/hackterm
+source-code: https://github.com/Farrooss/hackterm
+issues: https://github.com/Farrooss/hackterm/issues
+icon: packaging/linux/io.github.Farrooss.hackterm.svg
+base: core24
+grade: stable
+confinement: strict
+
+apps:
+  hackterm:
+    command: bin/hackterm
+    desktop: share/applications/io.github.Farrooss.hackterm.desktop
+    plugs:
+      - omarchy-theme
+
+plugs:
+  # Optional: read the Omarchy theme colours. hackterm works without it.
+  omarchy-theme:
+    interface: personal-files
+    read:
+      - $HOME/.local/state/omarchy/current/theme
+
+parts:
+  hackterm:
+    plugin: python
+    source: .
+    override-build: |
+      craftctl default
+      install -Dm644 packaging/linux/io.github.Farrooss.hackterm.desktop \
+        "$CRAFT_PART_INSTALL/share/applications/io.github.Farrooss.hackterm.desktop"
+      sed -i 's|^Icon=.*|Icon=${SNAP}/meta/gui/icon.svg|' \
+        "$CRAFT_PART_INSTALL/share/applications/io.github.Farrooss.hackterm.desktop"

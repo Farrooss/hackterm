@@ -1,0 +1,21 @@
+#!/bin/sh
+# AppImage entry point. hackterm needs a terminal: when started from a file manager or
+# app launcher (no terminal attached), open one and run this AppImage inside it.
+here=$(dirname "$(readlink -f "$0")")
+if [ -t 0 ] && [ -t 1 ]; then
+  exec "$here/usr/bin/hackterm" "$@"
+fi
+self=${APPIMAGE:-$0}
+for t in "$TERMINAL" xdg-terminal-exec x-terminal-emulator kgx gnome-terminal konsole ghostty kitty \
+         alacritty foot wezterm xfce4-terminal xterm; do
+  [ -n "$t" ] && command -v "$t" >/dev/null 2>&1 || continue
+  case $t in
+    xdg-terminal-exec|kgx|ghostty|kitty|foot) exec "$t" "$self" "$@" ;;
+    gnome-terminal) exec "$t" -- "$self" "$@" ;;
+    wezterm) exec "$t" start -- "$self" "$@" ;;
+    xfce4-terminal) exec "$t" -x "$self" "$@" ;;
+    *) exec "$t" -e "$self" "$@" ;;
+  esac
+done
+echo "hackterm needs a terminal: run $self from one." >&2
+exit 1

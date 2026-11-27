@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Application
+Name=hackterm
+GenericName=Fake Hacking Console
+Comment=Mash the keyboard and look like you're breaching a mainframe
+Exec=hackterm
+Icon=io.github.Farrooss.hackterm
+Terminal=true
+Categories=Game;Amusement;
+Keywords=hacker;hacking;terminal;prank;matrix;screensaver;
+Actions=screensaver;preview;
+
+[Desktop Action screensaver]
+Name=Screensaver
+Exec=hackterm --screensaver
+
+[Desktop Action preview]
+Name=Screensaver Preview
+Exec=hackterm --screensavepreview

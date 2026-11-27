@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.Farrooss.hackterm</id>
+  <name>hackterm</name>
+  <summary>Look like you're breaching a mainframe</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.farrooss">
+    <name>Farrooss</name>
+  </developer>
+  <description>
+    <p>
+      hackterm is a cinematic fake-hacking console for your terminal. Type anything and fluent
+      exploit code pours out, while a globe, a radar, a hex dump and a password cracker run
+      around it. It's pure theatre: it makes no network connections and runs no commands.
+    </p>
+    <ul>
+      <li>Type anything and convincing code appears</li>
+      <li>ACCESS GRANTED, INTRUSION ALERT, trace and download popups on a key</li>
+      <li>Four map panels: globe, network map, radar and traceroute</li>
+      <li>Matrix rain, glitches and a corner of the screen that melts</li>
+      <li>A screensaver mode that is safe for OLED screens</li>
+    </ul>
+    <p>hackterm runs in a terminal window.</p>
+  </description>
+  <launchable type="desktop-id">io.github.Farrooss.hackterm.desktop</launchable>
+  <provides>
+    <binary>hackterm</binary>
+  </provides>
+  <url type="homepage">https://github.com/Farrooss/hackterm</url>
+  <url type="bugtracker">https://github.com/Farrooss/hackterm/issues</url>
+  <url type="vcs-browser">https://github.com/Farrooss/hackterm</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>The main screen: map, memory dump, terminal, password cracker and systems</caption>
+      <image>https://raw.githubusercontent.com/Farrooss/hackterm/main/assets/screenshot.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The four map panels</caption>
+      <image>https://raw.githubusercontent.com/Farrooss/hackterm/main/assets/maps.png</image>
+    </screenshot>
+  </screenshots>
+  <branding>
+    <color type="primary" scheme_preference="light">#8ff0b8</color>
+    <color type="primary" scheme_preference="dark">#1f6b43</color>
+  </branding>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>keyboard</control>
+  </supports>
+  <releases>
+    <release version="0.0.4" date="2026-11-28">
+      <description>
+        <p>The Saver: hackterm can now be your screensaver. --screensaver runs by itself, quits on any key and is safe for OLED screens. --screensavepreview shows everything it does in about a minute.</p>
+      </description>
+    </release>
+    <release version="0.0.3" date="2026-11-26">
+      <description><p>Smaller standalone binaries, and a Homebrew tap.</p></description>
+    </release>
+    <release version="0.0.2" date="2026-11-26">
+      <description><p>F10 melts a corner of the screen, and packages for every major distro.</p></description>
+    </release>
+    <release version="0.0.1" date="2026-11-26">
+      <description><p>First release.</p></description>
+    </release>
+  </releases>
+</component>

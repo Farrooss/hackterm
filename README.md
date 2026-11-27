@@ -80,6 +80,32 @@ uv tool install git+https://github.com/Farrooss/hackterm
 pipx install git+https://github.com/Farrooss/hackterm
 ```
 
+**Flatpak:** download `hackterm-x86_64.flatpak` from the latest release, then
+
+```sh
+flatpak install --user ./hackterm-x86_64.flatpak
+flatpak run io.github.Farrooss.hackterm
+```
+
+hackterm isn't on Flathub, because Flathub doesn't take terminal-only apps.
+
+**Snap:** download the `.snap` from the latest release, then
+
+```sh
+sudo snap install --dangerous ./hackterm_*_amd64.snap
+```
+
+On Omarchy, also run `sudo snap connect hackterm:omarchy-theme` so it can read your theme colours.
+
+**AppImage:** download `hackterm-x86_64.AppImage` (or `-aarch64`), then
+
+```sh
+chmod +x hackterm-x86_64.AppImage
+./hackterm-x86_64.AppImage
+```
+
+Double-clicking it in a file manager opens it in a terminal.
+
 **No Python?** Download `hackterm-linux-x86_64` (or `-aarch64` for ARM) from the latest release. It's a standalone binary:
 
 ```sh

@@ -1,0 +1,34 @@
+# Flatpak build of hackterm, from this checkout.
+#
+#   flatpak run org.flatpak.Builder --user --install-deps-from=flathub --repo=repo \
+#       --force-clean build packaging/flatpak/io.github.Farrooss.hackterm.yml
+#   flatpak build-bundle repo hackterm.flatpak io.github.Farrooss.hackterm
+#
+# hackterm is a terminal app, so Flathub won't list it ("console software"); the
+# .flatpak bundle ships on the GitHub releases instead.
+id: io.github.Farrooss.hackterm
+runtime: org.freedesktop.Platform
+runtime-version: "26.08"
+sdk: org.freedesktop.Sdk
+command: hackterm
+finish-args:
+  # Read-only, and only for the optional Omarchy theme colours; hackterm works without it.
+  - --filesystem=~/.local/state/omarchy/current/theme:ro
+modules:
+  - name: hackterm
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 hackterm.py ${FLATPAK_DEST}/bin/hackterm
+      - install -Dm644 packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm644 packaging/linux/${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+      - install -Dm644 packaging/linux/${FLATPAK_ID}.svg ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg
+      - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/LICENSE
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - .git
+          - build
+          - dist
+          - repo
+          - .flatpak-builder
